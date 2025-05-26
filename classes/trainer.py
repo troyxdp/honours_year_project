@@ -1,6 +1,8 @@
 import numpy as np
 import os
 import tables
+import requests
+import gc
 
 from neural_network import NeuralNetwork
 from song import Song
@@ -82,8 +84,8 @@ class Trainer():
                             # Get values for dataset
                             num_songs = h5.root.metadata.songs.nrows
                             for i in range(num_songs):
-                                song_name = h5.root.metadata.songs.cols.title[i]
-                                artist_name = h5.root.metadata.songs.cols.artist_name[i]
+                                song_name = str(h5.root.metadata.songs.cols.title[i])[2:-1]
+                                artist_name = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1]
                                 year = h5.root.musicbrainz.songs.cols.year[i]
                                 genre = Trainer.genres['electronic']
                                 danceability = h5.root.analysis.songs.cols.danceability[i]
@@ -99,7 +101,7 @@ class Trainer():
                                 else:
                                     mfcc_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : h5.root.analysis.songs.cols.idx_segments_timbre[i+1], :]
                                 song = Song(
-                                    song_id=song_id,
+                                    song_name=song_name,
                                     artist_name=artist_name,
                                     release_year=year,
                                     genre=genre,
@@ -116,19 +118,131 @@ class Trainer():
 
                                 # FOR DEBUGGING
                                 num_loaded += 1
-                                print(f"Number of songs loaded = {num_loaded}")
+                                # print(f"Number of songs loaded = {num_loaded}")
 
                                 yield song
 
-                                # if num_loaded % Trainer.dataset_yield_size == 0:
-                                #     yield dataset.copy()
-                                #     dataset = []
 
+
+    def _get_access_token(self):
+        url = "https://accounts.spotify.com/api/token"
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        # TO-DO: hide the client_id and client_secret
+        data = {
+            "grant_type": "client_credentials",
+            "client_id": "6f6b166bffdc4596b1a5bcd8d53be857",
+            "client_secret": "392a29b2f0dd4954a311993b163d72ac"
+        }
+
+        response = requests.post(url, headers=headers, data=data)
+
+        if response.status_code >= 400:
+            raise Exception
+        return response.json()
+
+    def _get_song_id(self, song_name, artist_name, access_token):
+        input("Press ENTER to search for song ID")
+
+        if access_token is None:
+            access_token = self._get_access_token()['access_token']
+
+        url = 'https://api.spotify.com/v1/search'
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        params = {
+            'q': f'track:{song_name} artist:{artist_name}',
+            'type': 'track'
+        }
+        response = requests.get(url, headers=headers, params=params)
+
+        num_retries = 0
+        while response.status_code == 401 and num_retries < 5:
+            print("Retrying...")
+            num_retries += 1
+            access_token = self._get_access_token()
+            headers['Authorization'] = f'Bearer {access_token}'
+            response = requests.get(url, headers=headers, params=params)
+            if response.status_code > 400 and response.status_code != 401:
+                raise Exception
+
+        if num_retries == 5:
+            raise Exception
         
+        track_data = response.json()
+        track_id = track_data['tracks']['items'][0]['id']
+        
+        return access_token, track_id
 
+    def _get_audio_features(self, spotify_id, access_token):
+        input("Press ENTER to search for song audio features")
 
+        if access_token is None:
+            access_token = self._get_access_token()['access_token']
+
+        url = f'https://api.spotify.com/v1/audio-features/{spotify_id}'
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        response = requests.get(url, headers=headers)
+
+        num_retries = 0
+        while response.status_code >= 400 and num_retries < 5:
+            if response.status_code != 401:
+                raise Exception
+            print("Retrying...")
+            num_retries += 1
+            access_token = self._get_access_token()
+            headers['Authorization'] = f'Bearer {access_token}'
+            response = requests.get(url, headers=headers, params=params)
+
+        if num_retries == 5:
+            raise Exception
+
+        audio_features_data = response.json()
+        return audio_features_data
+        
     def clean_data(self, dataset):
-        pass
+        print("Cleaning dataset...")
+        to_ret_dataset = []
+        access_token = None
+        for item in dataset:
+            if not isinstance(item, Song) or item is None:
+                continue
+            if item.danceability == 0.0 or item.energy == 0.0:
+                # # Get track ID
+                # track_id = None
+                # try:
+                #     access_token, track_id = self._get_song_id(item.song_name, item.artist_name, access_token)
+                # except Exception:
+                #     print(f"Cannot find track '{item.song_name}' by {item.artist_name} --- skipping")
+                #     continue
+                # # Get missing features
+                # try:
+                #     audio_features = self._get_audio_features(track_id, access_token)
+                # except Exception:
+                #     print(f"Cannot find audio features for '{item.song_name}' by {item.artist_name} with track ID {track_id} --- skipping")
+                #     continue
+                # # Set missing values
+                # if item.energy == 0.0:
+                #     item.energy = audio_features['energy']
+                # if item.danceability == 0.0:
+                #     item.danceability = audio_features['danceability']
+                if item.danceability == 0 and item.energy != 0:
+                    print("Found one!")
+                if item.danceability != 0 and item.energy == 0:
+                    print("Found one!")
+                continue
+            to_ret_dataset.append(item)
+        # Raise exception if there are no items to return                
+        # if len(to_ret_dataset) == 0:
+        #     raise ValueError("Error: no items to return")
+        
+        return to_ret_dataset
+
+                
 
     def normalize_data(self, dataset):
         pass
@@ -186,10 +300,20 @@ if __name__ == '__main__':
         num_epochs=120,
         training_dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset'
     )
+    # print(trainer._get_song_id("Interstellar", "Victor Ruiz", None))
 
     dataset_gen = trainer.get_data('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset')
     i = 0
+    song_arr = []
     for song in dataset_gen:
-        if i % 100 == 0:
-            print(song.artist_name)
+        song_arr.append(song)
         i += 1
+        if i % 100 == 0:
+            print(i)
+            song_arr = trainer.clean_data(song_arr)
+            print(len(song_arr))
+            song_arr = []
+            try:
+                gc.collect()
+            except:
+                print("Error")
