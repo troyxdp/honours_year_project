@@ -8,11 +8,13 @@ class Song():
     embedding_len = 32 # length of embedding vector. This is the initial value and will change
 
     def __init__(
+        self,
         song_name: str,
         artist_name: str,
         release_year: int,
         genre: list,
         danceability: float,
+        energy: float,
         loudness: float,
         key: int,
         mode: int,
@@ -27,6 +29,7 @@ class Song():
         self.release_year = release_year
         self.genre = genre
         self.danceability = danceability
+        self.energy = energy
         self.loudness = loudness
         self.key = key
         self.mode = mode
