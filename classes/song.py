@@ -16,21 +16,31 @@ class Song():
         danceability: float,
         energy: float,
         loudness: float,
+        valence: float,
+        instrumentalness: float,
         key: int,
         mode: int,
         bpm: float,
         time_signature: int,
         mfcc_values,
-        audio=None
+        audio=None,
+        embedding=None,
+        fourier_transform_vector=None,
     ):
         # Values which are necessary to set
         self.song_name = song_name
         self.artist_name = artist_name
         self.release_year = release_year
-        self.genre = genre
+
+        # Spotify Attribuutes
         self.danceability = danceability
         self.energy = energy
         self.loudness = loudness
+        self.valence = valence
+        self.instrumentalness = instrumentalness
+        self.genre = genre
+
+        # MSD attributes
         self.key = key
         self.mode = mode
         self.bpm = bpm
@@ -41,8 +51,11 @@ class Song():
         self.audio = audio
 
         # Values which have to be set using methods
-        self.embedding = None
-        self.fourier_transform_vector = None
+        self.embedding = embedding
+        self.fourier_transform_vector = fourier_transform_vector
+
+    def get_nn_input():
+        pass
 
     def get_embedding(self):
         return self.embedding
@@ -53,7 +66,7 @@ class Song():
         if embedding is None:
             raise ValueError("Error: 'embedding' passed into function is None")
         # Check it is a list or numpy array
-        if not isinstance(embedding, numpy.ndarray) or isinstance(embedding, list):
+        if not isinstance(embedding, np.ndarray) or isinstance(embedding, list):
             raise TypeError("Error: 'embedding' is not a numpy array or a list")
         # Check it is the correct length
         if len(embedding) != Song.embedding_len:

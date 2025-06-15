@@ -1,8 +1,11 @@
-import numpy as np
 import os
+import gc
+import csv
+
+import numpy as np
+import pandas as pd
 import tables
 import requests
-import gc
 
 from neural_network import NeuralNetwork
 from song import Song
@@ -52,6 +55,99 @@ class Trainer():
         self.training_dataset_path = training_dataset_path
         self.validation_dataset_path = validation_dataset_path
 
+
+
+    def merge_datasets(self, msd_path, spotify_tracks_file_path, output_path):
+        # Check MSD path provided is valid
+        if not os.path.isdir(msd_path):
+            raise FileNotFoundError(f"Error: could not find directory {msd_path}")
+        
+        # Check Spotify Tracks path provided is valid
+        if not os.path.exists(spotify_tracks_file_path):
+            raise FileNotFoundError(f"Error: could not find directory {msd_path}")
+
+        # FOR DEBUGGING
+        counter = 1
+
+        # Get data
+        if len(os.listdir(msd_path)) == 0:
+            raise FileNotFoundError(f"Error: could not find dataset --- {msd_path} is empty")
+        # Iterate through directory provided
+        for path_dir_1 in sorted(os.listdir(msd_path)):
+            dir_path_1 = os.path.join(msd_path, path_dir_1)
+            if len(os.listdir(dir_path_1)) == 0:
+                raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
+            # Iterate through subdirectories
+            for path_dir_2 in sorted(os.listdir(dir_path_1)):
+                dir_path_2 = os.path.join(dir_path_1, path_dir_2)
+                if len(os.listdir(dir_path_2)) == 0:
+                    raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_2} is empty")
+                # Iterate through subsubdirectories
+                for path_dir_3 in sorted(os.listdir(dir_path_2)):
+                    dir_path_3 = os.path.join(dir_path_2, path_dir_3)
+                    # Get files
+                    for file_name in sorted(os.listdir(dir_path_3)):
+                        file_path = os.path.join(dir_path_3, file_name)
+                        with tables.open_file(file_path, mode='r') as h5:
+                            # Get values for dataset
+                            num_songs = h5.root.metadata.songs.nrows
+                            for i in range(num_songs):
+                                # Get values from MSD
+                                song_name = str(h5.root.metadata.songs.cols.title[i])[2:-1]
+                                artist_name = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1]
+                                year = h5.root.musicbrainz.songs.cols.year[i]
+                                key = h5.root.analysis.songs.cols.key[i]
+                                mode = h5.root.analysis.songs.cols.mode[i]
+                                bpm = h5.root.analysis.songs.cols.tempo[i]
+                                time_signature = h5.root.analysis.songs.cols.time_signature[i]
+                                mfcc_values = None
+                                if h5.root.analysis.songs.nrows == i + 1:
+                                    mfcc_values = h5.root.analysis.segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : , :]
+                                else:
+                                    mfcc_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : h5.root.analysis.songs.cols.idx_segments_timbre[i+1], :]
+
+                                # Get values from Spotify Tracks Dataset
+                                genre = None
+                                danceability = None
+                                energy = None
+                                loudness = None
+                                valence = None
+
+                                # Iterate through dataset
+                                found = False
+                                for chunk in pd.read_csv(spotify_tracks_file_path, chunksize=1000):
+                                    for row in chunk.itertuples(index=True):
+                                        row_song_name = str(row.track_name).lower()
+                                        row_song_artist = str(row.artists).lower()
+                                        curr_song_name = song_name.lower()
+                                        curr_song_artist = artist_name.lower()
+                                        if row_song_name == curr_song_name:
+                                            if row_song_artist == curr_song_artist:
+                                                # Get values
+                                                danceability = row.danceability
+                                                energy = row.energy
+                                                genre = row.track_genre
+                                                instrumentalness = row.instrumentalness
+                                                loudness = row.loudness
+                                                valence = row.valence
+                                                # Update found and break
+                                                found = True
+                                                break
+                                        if found:
+                                            break
+                                        
+                                # Write to CSV if corresponding entry is found in Spotify Tracks Dataset
+                                if found:
+                                    print(f"{counter}: Found entry for {song_name}")
+                                    with open(output_path, 'a') as f:
+                                        writer = csv.writer(f, delimiter=',', quotechar='|')
+                                        writer.writerow([song_name, artist_name, year, key, mode, bpm, time_signature, genre, danceability, loudness, valence, instrumentalness])
+                                else:
+                                    print(f"{counter}: No entry found for {song_name}")
+                                counter += 1
+
+
+
     def get_data(self, path: str):
         # Check path provided is valid
         if not os.path.isdir(path):
@@ -61,7 +157,6 @@ class Trainer():
         num_loaded = 0
 
         # Get data
-        dataset = []
         if len(os.listdir(path)) == 0:
             raise FileNotFoundError(f"Error: could not find dataset --- {path} is empty")
         # Iterate through directory provided
@@ -114,7 +209,6 @@ class Trainer():
                                     time_signature=time_signature,
                                     mfcc_values=mfcc_values,
                                 )
-                                dataset.append(song)
 
                                 # FOR DEBUGGING
                                 num_loaded += 1
@@ -123,126 +217,6 @@ class Trainer():
                                 yield song
 
 
-
-    def _get_access_token(self):
-        url = "https://accounts.spotify.com/api/token"
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        # TO-DO: hide the client_id and client_secret
-        data = {
-            "grant_type": "client_credentials",
-            "client_id": "6f6b166bffdc4596b1a5bcd8d53be857",
-            "client_secret": "392a29b2f0dd4954a311993b163d72ac"
-        }
-
-        response = requests.post(url, headers=headers, data=data)
-
-        if response.status_code >= 400:
-            raise Exception
-        return response.json()
-
-    def _get_song_id(self, song_name, artist_name, access_token):
-        input("Press ENTER to search for song ID")
-
-        if access_token is None:
-            access_token = self._get_access_token()['access_token']
-
-        url = 'https://api.spotify.com/v1/search'
-        headers = {
-            'Authorization': f'Bearer {access_token}'
-        }
-        params = {
-            'q': f'track:{song_name} artist:{artist_name}',
-            'type': 'track'
-        }
-        response = requests.get(url, headers=headers, params=params)
-
-        num_retries = 0
-        while response.status_code == 401 and num_retries < 5:
-            print("Retrying...")
-            num_retries += 1
-            access_token = self._get_access_token()
-            headers['Authorization'] = f'Bearer {access_token}'
-            response = requests.get(url, headers=headers, params=params)
-            if response.status_code > 400 and response.status_code != 401:
-                raise Exception
-
-        if num_retries == 5:
-            raise Exception
-        
-        track_data = response.json()
-        track_id = track_data['tracks']['items'][0]['id']
-        
-        return access_token, track_id
-
-    def _get_audio_features(self, spotify_id, access_token):
-        input("Press ENTER to search for song audio features")
-
-        if access_token is None:
-            access_token = self._get_access_token()['access_token']
-
-        url = f'https://api.spotify.com/v1/audio-features/{spotify_id}'
-        headers = {
-            'Authorization': f'Bearer {access_token}'
-        }
-        response = requests.get(url, headers=headers)
-
-        num_retries = 0
-        while response.status_code >= 400 and num_retries < 5:
-            if response.status_code != 401:
-                raise Exception
-            print("Retrying...")
-            num_retries += 1
-            access_token = self._get_access_token()
-            headers['Authorization'] = f'Bearer {access_token}'
-            response = requests.get(url, headers=headers, params=params)
-
-        if num_retries == 5:
-            raise Exception
-
-        audio_features_data = response.json()
-        return audio_features_data
-        
-    def clean_data(self, dataset):
-        print("Cleaning dataset...")
-        to_ret_dataset = []
-        access_token = None
-        for item in dataset:
-            if not isinstance(item, Song) or item is None:
-                continue
-            if item.danceability == 0.0 or item.energy == 0.0:
-                # # Get track ID
-                # track_id = None
-                # try:
-                #     access_token, track_id = self._get_song_id(item.song_name, item.artist_name, access_token)
-                # except Exception:
-                #     print(f"Cannot find track '{item.song_name}' by {item.artist_name} --- skipping")
-                #     continue
-                # # Get missing features
-                # try:
-                #     audio_features = self._get_audio_features(track_id, access_token)
-                # except Exception:
-                #     print(f"Cannot find audio features for '{item.song_name}' by {item.artist_name} with track ID {track_id} --- skipping")
-                #     continue
-                # # Set missing values
-                # if item.energy == 0.0:
-                #     item.energy = audio_features['energy']
-                # if item.danceability == 0.0:
-                #     item.danceability = audio_features['danceability']
-                if item.danceability == 0 and item.energy != 0:
-                    print("Found one!")
-                if item.danceability != 0 and item.energy == 0:
-                    print("Found one!")
-                continue
-            to_ret_dataset.append(item)
-        # Raise exception if there are no items to return                
-        # if len(to_ret_dataset) == 0:
-        #     raise ValueError("Error: no items to return")
-        
-        return to_ret_dataset
-
-                
 
     def normalize_data(self, dataset):
         pass
@@ -257,6 +231,7 @@ class Trainer():
         pass
 
     def set_hyperparameters(
+        self,
         initial_lr: float,
         final_lr: float,
         num_epochs: int,
@@ -300,20 +275,15 @@ if __name__ == '__main__':
         num_epochs=120,
         training_dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset'
     )
-    # print(trainer._get_song_id("Interstellar", "Victor Ruiz", None))
 
-    dataset_gen = trainer.get_data('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset')
-    i = 0
-    song_arr = []
-    for song in dataset_gen:
-        song_arr.append(song)
-        i += 1
-        if i % 100 == 0:
-            print(i)
-            song_arr = trainer.clean_data(song_arr)
-            print(len(song_arr))
-            song_arr = []
-            try:
-                gc.collect()
-            except:
-                print("Error")
+    rewrite = input("Would you like to write over merged_dataset (y/n)? ")
+    if rewrite.lower() == 'y':
+        with open('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MergedDataset/merged_dataset.csv', 'w') as f:
+            writer = csv.writer(f, delimiter=',', quotechar='|')
+            writer.writerow(['track_name', 'artists', 'year', 'key', 'mode', 'tempo', 'time_signature', 'track_genre', 'danceability', 'loudness', 'valence', 'instrumentalness']) 
+
+    dataset_gen = trainer.merge_datasets(
+        msd_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset',
+        spotify_tracks_file_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/SpotifyTracksDataset/dataset.csv',
+        output_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MergedDataset/merged_dataset.csv'
+    )
