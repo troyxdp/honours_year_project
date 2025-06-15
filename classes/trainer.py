@@ -10,6 +10,32 @@ import requests
 from neural_network import NeuralNetwork
 from song import Song
 
+
+
+class ModelStatisticsPerEpoch():
+
+    def __init__(self, loss: float, epoch_time: float, map_score=None, precision=None, recall=None):
+        self._loss = loss
+        self._epoch_time = epoch_time
+        self._map_score = map_score
+        self._precision = precision
+        self._recall = recall
+
+    def get_loss(self):
+        return self._loss
+    
+    def get_epoch_time(self):
+        return self._epoch_time
+    
+    def get_map_score(self):
+        return self._epoch_time
+    
+    def get_precision(self):
+        return self._epoch_time
+    
+    def get_recall(self):
+        return self._recall
+
 class Trainer():
 
     # Temporary placeholder for genre values
@@ -121,7 +147,7 @@ class Trainer():
                                         row_song_artist = str(row.artists).lower()
                                         curr_song_name = song_name.lower()
                                         curr_song_artist = artist_name.lower()
-                                        if row_song_name == curr_song_name:
+                                        if row_song_name == curr_song_name: # TODO: consider using __contains__ both ways
                                             if row_song_artist == curr_song_artist:
                                                 # Get values
                                                 danceability = row.danceability
@@ -135,10 +161,10 @@ class Trainer():
                                                 break
                                         if found:
                                             break
-                                        
+
                                 # Write to CSV if corresponding entry is found in Spotify Tracks Dataset
                                 if found:
-                                    print(f"{counter}: Found entry for {song_name}")
+                                    print(f"\n{counter}: Found entry for {song_name}\n")
                                     with open(output_path, 'a') as f:
                                         writer = csv.writer(f, delimiter=',', quotechar='|')
                                         writer.writerow([song_name, artist_name, year, key, mode, bpm, time_signature, genre, danceability, loudness, valence, instrumentalness])
@@ -148,20 +174,20 @@ class Trainer():
 
 
 
-    def get_data(self, path: str):
+    def get_data(self, msd_path: str, csv_path: str):
         # Check path provided is valid
-        if not os.path.isdir(path):
-            raise FileNotFoundError(f"Error: could not find directory {path}")
+        if not os.path.isdir(msd_path):
+            raise FileNotFoundError(f"Error: could not find directory {msd_path}")
 
         # FOR DEBUGGING
         num_loaded = 0
 
         # Get data
-        if len(os.listdir(path)) == 0:
-            raise FileNotFoundError(f"Error: could not find dataset --- {path} is empty")
+        if len(os.listdir(msd_path)) == 0:
+            raise FileNotFoundError(f"Error: could not find dataset --- {msd_path} is empty")
         # Iterate through directory provided
-        for path_dir_1 in sorted(os.listdir(path)):
-            dir_path_1 = os.path.join(path, path_dir_1)
+        for path_dir_1 in sorted(os.listdir(msd_path)):
+            dir_path_1 = os.path.join(msd_path, path_dir_1)
             if len(os.listdir(dir_path_1)) == 0:
                 raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
             # Iterate through subdirectories
@@ -182,10 +208,6 @@ class Trainer():
                                 song_name = str(h5.root.metadata.songs.cols.title[i])[2:-1]
                                 artist_name = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1]
                                 year = h5.root.musicbrainz.songs.cols.year[i]
-                                genre = Trainer.genres['electronic']
-                                danceability = h5.root.analysis.songs.cols.danceability[i]
-                                energy = h5.root.analysis.songs.cols.energy[i]
-                                loudness = h5.root.analysis.songs.cols.loudness[i]
                                 key = h5.root.analysis.songs.cols.key[i]
                                 mode = h5.root.analysis.songs.cols.mode[i]
                                 bpm = h5.root.analysis.songs.cols.tempo[i]
@@ -195,26 +217,59 @@ class Trainer():
                                     mfcc_values = h5.root.analysis.segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : , :]
                                 else:
                                     mfcc_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : h5.root.analysis.songs.cols.idx_segments_timbre[i+1], :]
-                                song = Song(
-                                    song_name=song_name,
-                                    artist_name=artist_name,
-                                    release_year=year,
-                                    genre=genre,
-                                    danceability=danceability,
-                                    energy=energy,
-                                    loudness=loudness,
-                                    key=key,
-                                    mode=mode,
-                                    bpm=bpm,
-                                    time_signature=time_signature,
-                                    mfcc_values=mfcc_values,
-                                )
+                                
+                                # Get values from Spotify Tracks Dataset
+                                genre = None
+                                danceability = None
+                                energy = None
+                                loudness = None
+                                valence = None
 
-                                # FOR DEBUGGING
-                                num_loaded += 1
-                                # print(f"Number of songs loaded = {num_loaded}")
+                                # Iterate through dataset
+                                found = False
+                                for chunk in pd.read_csv(csv_path, chunksize=1000):
+                                    for row in chunk.itertuples(index=True):
+                                        row_song_name = str(row.track_name).lower()
+                                        row_song_artist = str(row.artists).lower()
+                                        curr_song_name = song_name.lower()
+                                        curr_song_artist = artist_name.lower()
+                                        if row_song_name == curr_song_name:
+                                            if row_song_artist == curr_song_artist:
+                                                # Get values
+                                                danceability = row.danceability
+                                                energy = row.energy
+                                                genre = row.track_genre
+                                                instrumentalness = row.instrumentalness
+                                                loudness = row.loudness
+                                                valence = row.valence
+                                                # Update found and break
+                                                found = True
+                                                break
+                                        if found:
+                                            break
 
-                                yield song
+                                # Write to CSV if corresponding entry is found in Spotify Tracks Dataset
+                                if found:
+                                    song = Song(
+                                        song_name=song_name,
+                                        artist_name=artist_name,
+                                        release_year=year,
+                                        genre=genre,
+                                        danceability=danceability,
+                                        energy=energy,
+                                        loudness=loudness,
+                                        key=key,
+                                        mode=mode,
+                                        bpm=bpm,
+                                        time_signature=time_signature,
+                                        mfcc_values=mfcc_values,
+                                    )
+
+                                    # FOR DEBUGGING
+                                    num_loaded += 1
+                                    # print(f"Number of songs loaded = {num_loaded}")
+
+                                    yield song
 
 
 
