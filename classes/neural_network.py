@@ -20,18 +20,18 @@ class Layer():
     def update_layer(self, grad):
         raise NotImplementedError
     
-    def set_input(self, input):
+    def set_input(self, input:np.ndarray):
         self._input = input
 
-    def get_output(self, output):
+    def get_output(self):
         return self._output
 
 class FeedForwardLayer(Layer):
 
     def __init__(
         self,
-        weights=None,
-        biases=None,
+        weights:np.ndarray=None,
+        biases:np.ndarray=None,
         activation_function=None,
     ):
         # Initialize superclass
@@ -56,6 +56,11 @@ class FeedForwardLayer(Layer):
             self.num_inputs = self._weights.shape[1] # number of inputs is number of columns
             self.num_outputs = self._weights.shape[0] # number of outputs is number of rows 
 
+        # Create inputs and outputs
+        if not self.num_inputs is None:
+            self._input = np.zeros(self.num_inputs)
+            self._output = np.zeros(self.num_outputs)
+
     def forward(self):
         # Get z values
         self._z_values = np.dot(self._weights, self._input)
@@ -65,7 +70,7 @@ class FeedForwardLayer(Layer):
         # Apply activation function and get 
         self._output = self._activation_function(self._z_values)
 
-    def set_activation_function(self, act_fn: function):
+    def set_activation_function(self, act_fn):
         self._activation_function = act_fn
 
     def get_z_values(self):
@@ -77,15 +82,20 @@ class FeedForwardLayer(Layer):
     
 
 class NeuralNetwork(): 
+
     def __init__(
         self, 
+        input_size:int=209,
+        output_size:int=209,
         layers=None
     ):
         self._input = None
-        self._layers = layers
+        self._layers = layers if not layers is None else []
         self._output = None
 
-    def set_input(self, input):
+    def set_input(self, input: np.ndarray):
+        if len(self._input) != len(input):
+            raise ValueError("Error: length of provided input does not match input shape of network")
         self._input = input
 
     def feed_forward(self):
@@ -96,14 +106,21 @@ class NeuralNetwork():
             x = layer.get_output()
         self._output = x
 
-    def back_propogate(self, lr: float, error_prime,  momentum=None, clip_score=1.0):
+    def back_propogate(self, lr: float, error_prime: np.ndarray,  momentum=None, clip_score=1.0):
         pass
 
     def get_output(self):
         return self._output
     
     def append_layer(self, layer: Layer):
-        # TODO: add validity checks
+        # Check type of object provided
+        if not type(layer) == Layer:
+            raise TypeError("Error: please provide a Layer object or subtype")
+        # Check dimensions are correct if it is a FeedForwardLayer
+        if len(self._layers) > 0:
+            if type(layer) == FeedForwardLayer and type(self._layers[-1]) == FeedForwardLayer and self._layers[-1].num_outputs != layer.num_inputs:
+                raise ValueError("Error: number of outputs of last layer does not match number of inputs of current layer")
+        # Append layer
         self._layers.append(layer)
 
     def get_layer(self, layer_num):

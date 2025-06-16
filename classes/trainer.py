@@ -7,12 +7,16 @@ import pandas as pd
 import tables
 import requests
 
-from neural_network import NeuralNetwork
-from song import Song
+try:
+    from neural_network import NeuralNetwork
+    from song import Song
+except:
+    from .neural_network import NeuralNetwork
+    from .song import Song
 
 
 
-class ModelStatisticsPerEpoch():
+class EpochStatistics():
 
     def __init__(self, loss: float, epoch_time: float, map_score=None, precision=None, recall=None):
         self._loss = loss
@@ -38,16 +42,6 @@ class ModelStatisticsPerEpoch():
 
 class Trainer():
 
-    # Temporary placeholder for genre values
-    genres = {
-        'electronic': [0, 0, 0],
-        'hip_hop': [0, 0, 1],
-        'pop': [0, 1, 0],
-        'rock': [0, 1, 1],
-        'country': [1, 0, 0],
-        'blues': [1, 1, 0],
-        'jazz': [1, 1, 1]
-    }
     dataset_yield_size = 1000
 
     def __init__(
@@ -167,7 +161,7 @@ class Trainer():
                                     print(f"\n{counter}: Found entry for {song_name}\n")
                                     with open(output_path, 'a') as f:
                                         writer = csv.writer(f, delimiter=',', quotechar='|')
-                                        writer.writerow([song_name, artist_name, year, key, mode, bpm, time_signature, genre, danceability, loudness, valence, instrumentalness])
+                                        writer.writerow([song_name, artist_name, year, key, mode, bpm, time_signature, genre, danceability, energy, loudness, valence, instrumentalness])
                                 else:
                                     print(f"{counter}: No entry found for {song_name}")
                                 counter += 1
@@ -263,6 +257,8 @@ class Trainer():
                                         bpm=bpm,
                                         time_signature=time_signature,
                                         mfcc_values=mfcc_values,
+                                        valence=valence,
+                                        instrumentalness=instrumentalness
                                     )
 
                                     # FOR DEBUGGING
@@ -322,7 +318,7 @@ class Trainer():
 
 
 if __name__ == '__main__':
-    nn = NeuralNetwork((64, 128, 128, 32), ('relu', 'relu', 'relu'))
+    nn = NeuralNetwork()
     trainer = Trainer(
         training_network=nn,
         initial_lr=0.001,
@@ -335,7 +331,7 @@ if __name__ == '__main__':
     if rewrite.lower() == 'y':
         with open('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MergedDataset/merged_dataset.csv', 'w') as f:
             writer = csv.writer(f, delimiter=',', quotechar='|')
-            writer.writerow(['track_name', 'artists', 'year', 'key', 'mode', 'tempo', 'time_signature', 'track_genre', 'danceability', 'loudness', 'valence', 'instrumentalness']) 
+            writer.writerow(['track_name', 'artists', 'year', 'key', 'mode', 'tempo', 'time_signature', 'track_genre', 'danceability', 'energy', 'loudness', 'valence', 'instrumentalness']) 
 
     dataset_gen = trainer.merge_datasets(
         msd_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset',
