@@ -89,9 +89,10 @@ class NeuralNetwork():
         output_size:int=209,
         layers=None
     ):
-        self._input = None
+        self._input = np.zeros(input_size)
         self._layers = layers if not layers is None else []
-        self._output = None
+        self._output = np.ones(output_size)
+        self._output[:] = np.nan # Set output values to NaN
 
     def set_input(self, input: np.ndarray):
         if len(self._input) != len(input):
@@ -114,11 +115,11 @@ class NeuralNetwork():
     
     def append_layer(self, layer: Layer):
         # Check type of object provided
-        if not type(layer) == Layer:
+        if not isinstance(layer, Layer):
             raise TypeError("Error: please provide a Layer object or subtype")
         # Check dimensions are correct if it is a FeedForwardLayer
         if len(self._layers) > 0:
-            if type(layer) == FeedForwardLayer and type(self._layers[-1]) == FeedForwardLayer and self._layers[-1].num_outputs != layer.num_inputs:
+            if isinstance(layer, FeedForwardLayer) and isinstance(self._layers[-1], Layer) and self._layers[-1].num_outputs != layer.num_inputs:
                 raise ValueError("Error: number of outputs of last layer does not match number of inputs of current layer")
         # Append layer
         self._layers.append(layer)

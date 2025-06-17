@@ -76,6 +76,8 @@ class Trainer():
 
 
 
+    # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
+    # specifically the parts for getting each value from the h5 file
     def merge_datasets(self, msd_path, spotify_tracks_file_path, output_path):
         # Check MSD path provided is valid
         if not os.path.isdir(msd_path):
@@ -167,13 +169,12 @@ class Trainer():
 
 
 
+    # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
+    # specifically the parts for getting each value from the h5 file
     def get_data(self, msd_path: str, csv_path: str):
         # Check path provided is valid
         if not os.path.isdir(msd_path):
             raise FileNotFoundError(f"Error: could not find directory {msd_path}")
-
-        # FOR DEBUGGING
-        num_loaded = 0
 
         # Get data
         if len(os.listdir(msd_path)) == 0:
@@ -260,16 +261,64 @@ class Trainer():
                                         instrumentalness=instrumentalness
                                     )
 
-                                    # FOR DEBUGGING
-                                    num_loaded += 1
-                                    # print(f"Number of songs loaded = {num_loaded}")
-
                                     yield song
 
 
 
-    def normalize_data(self, dataset):
-        pass
+    def normalize_song(self, song: Song):
+        # Normalize danceability
+        if song.danceability < 0:
+            raise ValueError("Error: danceability cannot be less than 0")
+        if song.danceability > 1:
+            song.danceability /= 100
+            if song.danceability > 1:
+                raise ValueError("Error: invalid value provided for danceability")
+            
+        # Normalize energy
+        if song.energy < 0:
+            raise ValueError("Error: energy cannot be less than 0")
+        if song.energy > 1:
+            song.energy /= 100
+            if song.energy > 1:
+                raise ValueError("Error: invalid value provided for danceability")
+            
+        # Normalize valence
+        if song.valence < 0:
+            raise ValueError("Error: valence cannot be less than 0")
+        if song.valence > 1:
+            song.valence /= 100
+            if song.valence > 1:
+                raise ValueError("Error: invalid value provided for valence")
+            
+        # Normalize instrumentalness
+        if song.instrumentalness < 0:
+            raise ValueError("Error: instrumentalness cannot be less than 0")
+        if song.instrumentalness > 1:
+            song.instrumentalness /= 100
+            if song.instrumentalness > 1:
+                raise ValueError("Error: invalid value provided for instrumentalness")
+
+    def is_missing_values(self, song: Song):
+        # Check if missing year
+        if song.release_year == 0:
+            return True
+        # Check if missing genre
+        if song.genre == '':
+            return True
+        # Check if missing energy
+        if song.energy == 0:
+            return True
+        # Check if missing BPM
+        if song.bpm == 0:
+            return True
+        # Check if missing mfcc values
+        if len(song.mfcc_values) < 16:
+            return True
+        # Check if missing valence
+        if song.valence == 0:
+            return True
+        # Not missing anything --- return False
+        return False
 
     def set_training_network(self, nn: NeuralNetwork):
         pass

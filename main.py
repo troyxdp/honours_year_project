@@ -52,7 +52,22 @@ if __name__ == '__main__':
 
     # Demonstrate feed forward of network
     for item in trainer.get_data('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset', '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MergedDataset/merged_dataset.csv'):
+        # Check for missing values
+        print()
+        if trainer.is_missing_values(item):
+            print(f"Song {item.song_name} is missing values")
+            continue
+        
+        # Normalize song
+        try:
+            trainer.normalize_song(item)
+        except ValueError:
+            print(f"Error: invalid values in song {item.song_name} --- cannot normalize")
+            continue
+
+        # Run through neural network
         nn.set_input(item.get_nn_input())
         nn.feed_forward()
         output = nn.get_output()
-        print(output)
+        print(f"Successfully ran song {item.song_name} through pipeline")
+        print(f"First 10 values in output: {output[:10]}")
