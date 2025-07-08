@@ -1,22 +1,36 @@
+# Default libraries
+import os
+
 # External libraries
 import psycopg2
 from fastapi import FastAPI
 import uvicorn
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from dotenv import load_dotenv
 
 # Code I wrote
 from classes.neural_network import NeuralNetwork
 from classes.neural_network import FeedForwardLayer
 
 
+# Load environment variables from .env file
+load_dotenv()
+# Get environment variables
+DB = os.getenv('DB')
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_HOST = os.getenv('DB_HOST')
+DB_PORT = os.getenv('DB_PORT')
+
+
 # Create connection to database
 conn = psycopg2.connect(
-    database='algorhythm',
-    user='postgres',
-    password='4lg0rhythm',
-    host='localhost',
-    port=5432
+    database=DB,
+    user=DB_USER,
+    password=DB_PASSWORD,
+    host=DB_HOST,
+    port=DB_PORT
 )
 
 
