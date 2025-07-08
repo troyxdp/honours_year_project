@@ -23,7 +23,7 @@ class Song():
         bpm: float,
         time_signature: int,
         mfcc_values,
-        audio=None,
+        audio_file_path:str=None,
         embedding=None,
         fourier_transform_vector=None,
     ):
@@ -48,7 +48,7 @@ class Song():
         self.mfcc_values = mfcc_values
 
         # Values which are not necessary to set
-        self.audio = audio
+        self.audio_file_path = audio_file_path
 
         # Values which have to be set using methods
         self.embedding = embedding
@@ -154,5 +154,5 @@ class Song():
         self.embedding = embedding
 
     def get_discrete_fourier_transform(self):
-        if self.audio is None:
+        if self.audio_file_path is None:
             raise AttributeError("Error: 'audio' attribute is not set")
