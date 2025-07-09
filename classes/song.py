@@ -22,7 +22,7 @@ class Song():
         mode: int,
         bpm: float,
         time_signature: int,
-        mfcc_values,
+        timbre_values,
         audio_file_path:str=None,
         embedding=None,
         fourier_transform_vector=None,
@@ -45,7 +45,7 @@ class Song():
         self.mode = mode
         self.bpm = bpm
         self.time_signature = time_signature
-        self.mfcc_values = mfcc_values
+        self.timbre_values = timbre_values
 
         # Values which are not necessary to set
         self.audio_file_path = audio_file_path
@@ -57,8 +57,10 @@ class Song():
     def get_nn_input(self):
         nn_input = []
 
-        # Add first 16 mfcc vectors
-        for mfcc_value in self.mfcc_values[:16]:
+        # Add first 16 timbre values
+        if len(self.timbre_values) < 16:
+            raise ValueError("Error: not enough timbre values to use for embedding")
+        for mfcc_value in self.timbre_values[:16]:
             nn_input.extend(mfcc_value) 
         # + LENGTH 192
 

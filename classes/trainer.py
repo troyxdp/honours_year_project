@@ -256,7 +256,7 @@ class Trainer():
                                         mode=mode,
                                         bpm=bpm,
                                         time_signature=time_signature,
-                                        mfcc_values=mfcc_values,
+                                        timbre_values=mfcc_values,
                                         valence=valence,
                                         instrumentalness=instrumentalness
                                     )
@@ -312,7 +312,7 @@ class Trainer():
         if song.bpm == 0:
             return True
         # Check if missing mfcc values
-        if len(song.mfcc_values) < 16:
+        if len(song.timbre_values) < 16:
             return True
         # Check if missing valence
         if song.valence == 0:
