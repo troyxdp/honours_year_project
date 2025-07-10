@@ -58,6 +58,72 @@ def get_recommendation(current_track_id):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track ID for current track playing was provided")
     # TODO: implement rest of method where either next song on "stack" is recommended or recommendations are recalculated
 
+@app.get('/track-search/{search_query}') # TODO
+def track_search(search_query): 
+    ... # TODO: implement using SOUNDEX
+
+@app.get('/get-tracks-basic-info/start-position/{start_position}/end-position/{end_position}/sort-field/{sort_field}')
+def get_tracks_basic_info(start_position, end_position, sort_field):
+    # Get start/end position values as integers
+    try:
+        start_position = int(start_position)
+        end_position = int(end_position)
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: please provide integer start/end position values")
+    
+    # Check if start/end parameters provided were valid
+    if start_position < 0 or end_position < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: please provide positive start/end position values")
+    if start_position >= end_position:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: please provide a start position value lower than the end position value")
+    
+    # Check sort field is valid
+    if not sort_field in ('track_id', 'song_name', 'artist_name', 'release_year', 'key', 'mode', 'bpm', 'time_signature', 'genre'):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: invalid sort field provided")
+    
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            f"""
+            SELECT
+                track_id, song_name, artist_name, release_year, key, mode, bpm, time_signature, genre
+            FROM
+                track
+            ORDER BY {sort_field}
+            OFFSET %s
+            LIMIT %s;
+            """,
+            (start_position, end_position - start_position)
+        )
+        records = cursor.fetchall()
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not retrieve tracks from database")
+    
+    to_ret = []
+    for record in records:
+        record_dict = {
+            "track_id": record[0],
+            "song_name": record[1],
+            "artist_name": record[2],
+            "release_year": int(record[3]),
+            "key": int(record[4]),
+            "mode": int(record[5]),
+            "bpm": float(record[6]),
+            "time_signature": int(record[7]),
+            "genre": record[8]
+        }
+        to_ret.append(record_dict)
+
+    return JSONResponse(
+        {
+            "songs": to_ret,
+            "start_position": start_position,
+            "end_position": end_position
+        }
+    )
+
 @app.get('/get-detailed-track-info/{track_id}')
 def get_detailed_track_info(track_id):
     # Check if song exists

@@ -9,27 +9,6 @@ import numpy as np
 
 
 # Activation functions
-def relu(x: np.array):
-    to_ret = []
-    for val in x:
-        if val > 0:
-            to_ret.append(val)
-        else:
-            to_ret.append(0)
-    return np.array(to_ret, dtype=np.float64)
-def relu_dx(x):
-    to_ret = []
-    for val in x:
-        if val > 0:
-            to_ret.append(1)
-        else:
-            to_ret.append(0)
-    return np.array(to_ret, dtype=np.float64)
-def sigmoid(x: np.array):
-    return 1/(1 + np.exp(-x))
-def sigmoid_dx(x: np.array):
-    return sigmoid(x) * (1 - sigmoid(x))
-
 
 class Layer():
     
@@ -230,6 +209,28 @@ class NeuralNetwork():
         self._layers = layers if not layers is None else []
         self._output = np.ones(output_size, dtype=np.float64)
 
+    # ACTIVATION FUNCTIONS
+    def relu(x: np.array):
+        to_ret = []
+        for val in x:
+            if val > 0:
+                to_ret.append(val)
+            else:
+                to_ret.append(0)
+        return np.array(to_ret, dtype=np.float64)
+    def relu_dx(x):
+        to_ret = []
+        for val in x:
+            if val > 0:
+                to_ret.append(1)
+            else:
+                to_ret.append(0)
+        return np.array(to_ret, dtype=np.float64)
+    def sigmoid(x: np.array):
+        return 1/(1 + np.exp(-x))
+    def sigmoid_dx(x: np.array):
+        return NeuralNetwork.sigmoid(x) * (1 - NeuralNetwork.sigmoid(x))
+
     # GETTER METHODS
     def get_layer(self, layer_num):
         return self._layers[layer_num]
@@ -342,20 +343,19 @@ if __name__ == '__main__':
         nn_1 = NeuralNetwork(input_size=2, output_size=2)
         nn_1_layer_1_weights = np.array([[0.15, 0.2], [0.25, 0.3]], dtype=np.float64)
         nn_1_layer_1_bias = np.array([0.35, 0.35], dtype=np.float64)
-        nn_1_layer_1 = FeedForwardLayer(nn_1_layer_1_weights, nn_1_layer_1_bias, sigmoid, sigmoid_dx)
+        nn_1_layer_1 = FeedForwardLayer(nn_1_layer_1_weights, nn_1_layer_1_bias, NeuralNetwork.sigmoid, NeuralNetwork.sigmoid_dx)
         nn_1.append_layer(nn_1_layer_1)
         # Create second layer and add it to network
         nn_1_layer_2_weights = np.array([[0.4, 0.45], [0.5, 0.55]], dtype=np.float64)
         nn_1_layer_2_bias = np.array([0.6, 0.6], dtype=np.float64)
-        nn_1_layer_2 = FeedForwardLayer(nn_1_layer_2_weights, nn_1_layer_2_bias, sigmoid, sigmoid_dx)
+        nn_1_layer_2 = FeedForwardLayer(nn_1_layer_2_weights, nn_1_layer_2_bias, NeuralNetwork.sigmoid, NeuralNetwork.sigmoid_dx)
         nn_1.append_layer(nn_1_layer_2)
 
         # CHECK FEEDFORWARD OF NETWORK
-        print("TESTING FORWARD AND BACKWARDS PASS...")
         print("Testing NETWORK 1:")
-        print("FORWARD PASS:")
+        print("TESTING FORWARD AND BACKWARDS PASS...")
         print(nn_1)
-        print()
+        print("FORWARD PASS:")
         print(f"Forward pass for [0.05, 0.1]:")
         nn_1.set_input(np.array([0.05, 0.1], dtype=np.float64))
         nn_1.feed_forward()
@@ -394,6 +394,75 @@ if __name__ == '__main__':
         # CHECK SGD WITH MOMENTUM BACKPROP
         # TODO: test momentum
 
+
+
+        # NETWORK 2:
+        # Create first layer and add it to network
+        nn_2 = NeuralNetwork(input_size=3, output_size=2)
+        nn_2_layer_1_weights = np.array([
+                              [0.2,  0.4,  0.1],
+                              [0.5,  0.3,  0.7],
+                              [0.6,  0.9,  0.2],
+                              [0.8,  0.1,  0.5]
+                             ])
+        nn_2_layer_1_bias = np.array([0.1, 0.2, 0.3, 0.4])
+        nn_2_layer_1 = FeedForwardLayer(nn_2_layer_1_weights, nn_2_layer_1_bias, NeuralNetwork.sigmoid, NeuralNetwork.sigmoid_dx)
+        nn_2.append_layer(nn_2_layer_1)
+        # Create second layer and add it to network
+        nn_2_layer_2_weights = np.array([
+                              [0.3,  0.7, 0.5, 0.9],
+                              [0.8,  0.2, 0.6, 0.4]
+                             ])
+        nn_2_layer_2_bias = np.array([0.2, 0.5])
+        nn_2_layer_2 = FeedForwardLayer(nn_2_layer_2_weights, nn_2_layer_2_bias, NeuralNetwork.sigmoid, NeuralNetwork.sigmoid_dx)
+        nn_2.append_layer(nn_2_layer_2)
+
+        # CHECK FEED FORWARD OF NETWORK
+        print("\n\n\nTesting NETWORK 2:")
+        print("TESTING FORWARD AND BACKWARDS PASS...")
+        print(nn_2)
+        print("FORWARD PASS:")
+        print(f"Forward pass for [0.1, 0.5, 0.9]:")
+        nn_2.set_input(np.array([0.1, 0.5, 0.9],  dtype=np.float64))
+        nn_2.feed_forward()
+        output_2 = nn_2.get_output()
+        print(output_2)
+        print("Expected: [0.87159201 0.86489426]")
+        print()
+
+        # CHECK BACKPROPOGATION OF NETWORK
+        print("BACKWARD PASS:")
+        print("Testing NETWORK 1:")
+        target = np.array([0.0, 1.0], dtype=np.float64)
+        print(f"Target of output:")
+        print(target)
+        error_prime = output_2 - target
+        print(f"Error prime of output:")
+        print(error_prime)
+        nn_2.back_propogate(lr=0.5, error_prime=error_prime, clip_score=100.0)
+        print("Updated values:")
+        print(nn_2)
+        print("Expected values:")
+        print("""Layer 1: 
+              [[0.19980057 0.39900284 0.09820511]
+              [0.4993687  0.29684348 0.69431827]
+              [0.59961186 0.8980593  0.19650674]
+              [0.79919165 0.09595823 0.49272482]]""")
+        print("""Layer 2:
+              [[0.27068253 0.66405765 0.46443945 0.86453601]
+              [0.80474481 0.20581699 0.6057552  0.40573957]]""")
+        print()
+
+        # CHECK SAVING AND LOADING NETWORK
+        print("TESTING SAVING AND LOADING OF NETWORK...")
+        print("Testing saving of network...")
+        nn_2.save_network('networks/test_networks/neural_network_1.pkl')
+        print("Successfully saved network")
+        print("Testing loading of network...")
+        nn3 = NeuralNetwork.load_network('networks/test_networks/neural_network_1.pkl')
+        print(nn3)
+        print("Successfully loaded network")
+
     # GENERATE A DUMMY NEURAL NETWORK TO USE FOR API TEMPORARILY
     generate_dummy_network = input("Would you like to generate a dummy neural network to use for API testing? (y/n) ")
     if generate_dummy_network.lower() == 'y':
@@ -404,11 +473,11 @@ if __name__ == '__main__':
         # Layer 1
         layer_1_weights = np.random.rand(196, 209)
         layer_1_biases = np.random.rand(196)
-        layer_1 = FeedForwardLayer(layer_1_weights, layer_1_biases, relu)
+        layer_1 = FeedForwardLayer(layer_1_weights, layer_1_biases, NeuralNetwork.relu)
         # Layer 2
         layer_2_weights = np.random.rand(128, 196)
         layer_2_biases = np.random.rand(160)
-        layer_2 = FeedForwardLayer(layer_2_weights, layer_2_biases, relu)
+        layer_2 = FeedForwardLayer(layer_2_weights, layer_2_biases, NeuralNetwork.relu)
         # Add all layer to network
         nn.append_layer(layer_1)
         nn.append_layer(layer_2)
