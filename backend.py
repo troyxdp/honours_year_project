@@ -103,18 +103,21 @@ def get_tracks_basic_info(start_position, end_position, sort_field):
     
     to_ret = []
     for record in records:
-        record_dict = {
-            "track_id": record[0],
-            "song_name": record[1],
-            "artist_name": record[2],
-            "release_year": int(record[3]),
-            "key": int(record[4]),
-            "mode": int(record[5]),
-            "bpm": float(record[6]),
-            "time_signature": int(record[7]),
-            "genre": record[8]
-        }
-        to_ret.append(record_dict)
+        try:
+            record_dict = {
+                "track_id": record[0],
+                "song_name": record[1],
+                "artist_name": record[2],
+                "release_year": int(record[3]),
+                "key": int(record[4]),
+                "mode": int(record[5]),
+                "bpm": float(record[6]),
+                "time_signature": int(record[7]),
+                "genre": record[8]
+            }
+            to_ret.append(record_dict)
+        except TypeError as te:
+            print(te)
 
     return JSONResponse(
         {
