@@ -116,7 +116,7 @@ class FeedForwardLayer(Layer):
             self._velocity_weights = np.zeros_like(weights_grad, dtype=np.float64)
             self._velocity_bias = np.zeros_like(bias_grad, dtype=np.float64)
         
-        # Set velocity value if it has been initialized
+        # Set velocity value if it has been initialized - check correctness of minus sign
         self._velocity_weights = momentum * self._velocity_weights - lr * weights_grad
         self._velocity_bias = momentum * self._velocity_bias - lr * bias_grad
 
@@ -146,6 +146,7 @@ class FeedForwardLayer(Layer):
     def apply_activation_function_dx(self):
         return self._activation_function_dx(self._z_values)
     
+    # Made with help from 
     def update_layer(self, weights_grad, bias_grad, lr, momentum=None, clip_value=1.0):
         # Apply clipping
         weights_grad_norm = np.linalg.norm(weights_grad)
@@ -194,10 +195,6 @@ class FeedForwardLayer(Layer):
 
 
 class NeuralNetwork(): 
-
-    # TODO: add model summary __str__ method
-    # TODO: add saving and loading
-    # TODO: do backprop
 
     def __init__(
         self, 
@@ -264,6 +261,7 @@ class NeuralNetwork():
             x = layer.get_output()
         self._output = x
 
+    # Made with assistance from http://neuralnetworksanddeeplearning.com/chap2.html
     def back_propogate(self, lr: float, error_prime: np.ndarray,  momentum=None, clip_score=1.0):
         # Get first delta value
         delta = error_prime * self._layers[-1].apply_activation_function_dx()

@@ -4,7 +4,7 @@ h5py
 tables
 pandas
 
-psycopg2
+psycopg2-binary
 
 requests
 fastapi
