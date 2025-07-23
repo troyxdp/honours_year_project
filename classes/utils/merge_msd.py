@@ -108,6 +108,37 @@ def merge_msd_with_csv(msd_path, spotify_tracks_file_path, output_path):
                                 print(f"{counter}: No entry found for {track_name}")
                             counter += 1
 
+def is_same_artists(song_1_artists, song_2_artists):
+    # Check every element of song_1_artists (A) are in song_2_artists (B)
+    is_a_match_b = True
+    for artist_1 in song_1_artists:
+        is_match_from_a_to_b = False
+        for artist_2 in song_2_artists:
+            if artist_1.lower() == artist_2.lower():
+                is_match_from_a_to_b = True
+                break
+        is_a_match_b = is_a_match_b and is_match_from_a_to_b
+        if not is_a_match_b:
+            # Immediately return False
+            return False
+    
+    # Check every element of song_2_artists (B) are in song_1_artists (A)
+    is_b_match_a = True
+    for artist_2 in song_2_artists:
+        is_match_from_b_to_a = False
+        for artist_1 in song_1_artists:
+            if artist_2.lower() == artist_1.lower():
+                is_match_from_b_to_a = True
+                break
+        is_b_match_a = is_b_match_a and is_match_from_b_to_a
+        if not is_b_match_a:
+            # Immediately return False
+            return False
+    
+    # Return true
+    return True
+
+
 def create_hdf5_extended_msd(msd_path, csv_path, output_path):
     # Check MSD path provided is valid
     if not os.path.isdir(msd_path):
@@ -119,6 +150,8 @@ def create_hdf5_extended_msd(msd_path, csv_path, output_path):
 
     # FOR DEBUGGING
     counter = 1
+    success_count = 0
+    fail_count = 0
 
     # Get data
     if len(os.listdir(msd_path)) == 0:
@@ -146,7 +179,7 @@ def create_hdf5_extended_msd(msd_path, csv_path, output_path):
                             # Get values from MSD
                             song_id = str(h5.root.metadata.songs.cols.song_id[i])[2:-1]
                             track_name = str(h5.root.metadata.songs.cols.title[i])[2:-1]
-                            artists = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1] # they ARE separated by semi-colons
+                            artists = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1].split(';') # get array of artists
                             year = h5.root.musicbrainz.songs.cols.year[i]
                             key = h5.root.analysis.songs.cols.key[i]
                             mode = h5.root.analysis.songs.cols.mode[i]
@@ -171,11 +204,10 @@ def create_hdf5_extended_msd(msd_path, csv_path, output_path):
                             for chunk in pd.read_csv(csv_path, chunksize=1000):
                                 for row in chunk.itertuples(index=True):
                                     row_song_name = str(row.track_name).lower()
-                                    row_song_artist = str(row.artists).lower()
+                                    row_song_artists = str(row.artists).split(';')
                                     curr_song_name = track_name.lower()
-                                    curr_song_artist = artists.lower()
                                     if row_song_name == curr_song_name: # TODO: consider using __contains__ both ways
-                                        if row_song_artist == curr_song_artist:
+                                        if is_same_artists(row_song_artists, artists):
                                             # Get values
                                             danceability = row.danceability
                                             energy = row.energy
@@ -211,10 +243,19 @@ def create_hdf5_extended_msd(msd_path, csv_path, output_path):
                                     timbre_values=timbre_values,
                                     song_id=song_id,
                                 )
-                                create_track_file(output_path, track)
+                                successfully_created = create_track_file(output_path, track)
+                                if successfully_created:
+                                    print("Successfully created track and merged the data")
+                                    success_count += 1
+                                else:
+                                    print("Failed to create the track and merge the data")
+                                    fail_count += 1
                             else:
                                 print(f"{counter}: No entry found for {track_name}")
                             counter += 1
+    print()
+    print(f"Number of tracks successfully created: {success_count}")
+    print(f"Number of failures when attempting to create a track; {fail_count}")
 
 if __name__ == '__main__':
     create_csv_dataset = input("Would you like to create a CSV merged dataset? (y/n) ")
@@ -236,6 +277,7 @@ if __name__ == '__main__':
 
     create_hdf5_dataset = input("Would you like to create a HDF5 merged dataset? (y/n) ")
     if create_hdf5_dataset.lower() == 'y':
+        # msd_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongDataset'
         msd_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSubset'
         csv_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/SpotifyTracksDataset/spotify_tracks_cleaned_data.csv'
         output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset'
