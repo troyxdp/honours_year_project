@@ -12,7 +12,7 @@ class Song():
         song_name: str,
         artist_name: str,
         release_year: int,
-        genre: list,
+        # genre: list,
         danceability: float,
         energy: float,
         loudness: float,
@@ -20,16 +20,17 @@ class Song():
         instrumentalness: float,
         key: int,
         mode: int,
-        bpm: float,
+        tempo: float,
         time_signature: int,
         timbre_values,
+        song_id=None,
         audio_file_path:str=None,
         embedding=None,
-        fourier_transform_vector=None,
     ):
         # Values which are necessary to set
+        self.song_id = song_id
         self.song_name = song_name
-        self.artist_name = artist_name
+        self.artists = artist_name
         self.release_year = release_year
 
         # Spotify Attribuutes
@@ -38,12 +39,12 @@ class Song():
         self.loudness = loudness
         self.valence = valence
         self.instrumentalness = instrumentalness
-        self.genre = genre
+        # self.genre = genre
 
         # MSD attributes
         self.key = key
         self.mode = mode
-        self.bpm = bpm
+        self.tempo = tempo
         self.time_signature = time_signature
         self.timbre_values = timbre_values
 
@@ -52,7 +53,6 @@ class Song():
 
         # Values which have to be set using methods
         self.embedding = embedding
-        self.fourier_transform_vector = fourier_transform_vector
 
     def get_nn_input(self):
         nn_input = []
@@ -64,29 +64,29 @@ class Song():
             nn_input.extend(mfcc_value) 
         # + LENGTH 192
 
-        # Get key 3D vector - DOUBLE CHECK THIS
+        # Get key 3D vector --- convert from spherical coordinates to cartesian with theta (key angle), phi (mode angle+), and r = 1 as params
         key, mode = self.get_camelot_wheel_value()
-        x, y = np.cos(((key - 1) / 6) * np.pi), np.sin(((key - 1) / 6) * np.pi)
-        theta = ((-0.5 + mode) / 6) * np.pi
-        x = x * np.cos(theta)
-        y = y * np.cos(theta)
-        z = np.sin(theta) 
+        theta = ((key - 1) / 6) * np.pi
+        phi = ((2.5 + mode) / 6) * np.pi
+        x = np.sin(phi) * np.cos(theta)
+        y = np.sin(phi) * np.sin(theta)
+        z = np.cos(theta)
         nn_input.extend([x, y, z]) # + LENGTH 3
 
         # Get BPM 2D vector - pretty sure this is right but DOUBLE CHECK THIS
-        if self.bpm > 159:
-            while self.bpm > 159:
-                self.bpm /= 2
-        elif self.bpm < 80:
-            while self.bpm < 80:
-                self.bpm *= 2
-        normalized_bpm = (self.bpm - 80) / 80
+        if self.tempo > 159:
+            while self.tempo > 159:
+                self.tempo /= 2
+        elif self.tempo < 80:
+            while self.tempo < 80:
+                self.tempo *= 2
+        normalized_bpm = (self.tempo - 80) / 80
         x, y = np.cos(normalized_bpm * 2 * np.pi), np.sin(normalized_bpm * 2 * np.pi)
         nn_input.extend([x, y]) # + LENGTH 2
 
         # TODO: add genre handling - the following is temporary
-        genre_encoding = self.get_genre_encoding() 
-        nn_input.extend(genre_encoding) # + LENGTH 7 --- 125 total genres, encoding each genre as a binary number
+        # genre_encoding = self.get_genre_encoding() 
+        # nn_input.extend(genre_encoding) # + LENGTH 7 --- 125 total genres, encoding each genre as a binary number
 
         # Add the rest of the features (assuming they are all normalized)
         nn_input.extend([
@@ -97,7 +97,7 @@ class Song():
             self.instrumentalness
         ]) # + LENGTH 5
 
-        return np.array(nn_input) # TOTAL LENGTH 209
+        return np.array(nn_input) # TOTAL LENGTH 209 (with genre) 202 (without genre)
         
     def get_genre_encoding(self):
         # TODO: implement a genre encoding

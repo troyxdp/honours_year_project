@@ -295,7 +295,7 @@ def upload_track(track: Track = Depends(), files: List[UploadFile] = File(...)):
         instrumentalness=track.instrumentalness,
         key=track.key,
         mode=track.mode,
-        bpm=track.bpm,
+        tempo=track.bpm,
         time_signature=track.time_signature,
         timbre_values=track.timbre_values
     )

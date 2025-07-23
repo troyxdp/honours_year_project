@@ -78,99 +78,6 @@ class Trainer():
 
     # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
     # specifically the parts for getting each value from the h5 file
-    def merge_datasets(self, msd_path, spotify_tracks_file_path, output_path):
-        # Check MSD path provided is valid
-        if not os.path.isdir(msd_path):
-            raise FileNotFoundError(f"Error: could not find directory {msd_path}")
-        
-        # Check Spotify Tracks path provided is valid
-        if not os.path.exists(spotify_tracks_file_path):
-            raise FileNotFoundError(f"Error: could not find directory {msd_path}")
-
-        # FOR DEBUGGING
-        counter = 1
-
-        # Get data
-        if len(os.listdir(msd_path)) == 0:
-            raise FileNotFoundError(f"Error: could not find dataset --- {msd_path} is empty")
-        # Iterate through directory provided
-        for path_dir_1 in sorted(os.listdir(msd_path)):
-            dir_path_1 = os.path.join(msd_path, path_dir_1)
-            if len(os.listdir(dir_path_1)) == 0:
-                raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
-            # Iterate through subdirectories
-            for path_dir_2 in sorted(os.listdir(dir_path_1)):
-                dir_path_2 = os.path.join(dir_path_1, path_dir_2)
-                if len(os.listdir(dir_path_2)) == 0:
-                    raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_2} is empty")
-                # Iterate through subsubdirectories
-                for path_dir_3 in sorted(os.listdir(dir_path_2)):
-                    dir_path_3 = os.path.join(dir_path_2, path_dir_3)
-                    # Get files
-                    for file_name in sorted(os.listdir(dir_path_3)):
-                        file_path = os.path.join(dir_path_3, file_name)
-                        with tables.open_file(file_path, mode='r') as h5:
-                            # Get values for dataset
-                            num_songs = h5.root.metadata.songs.nrows
-                            for i in range(num_songs):
-                                # Get values from MSD
-                                song_name = str(h5.root.metadata.songs.cols.title[i])[2:-1]
-                                artist_name = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1]
-                                year = h5.root.musicbrainz.songs.cols.year[i]
-                                key = h5.root.analysis.songs.cols.key[i]
-                                mode = h5.root.analysis.songs.cols.mode[i]
-                                bpm = h5.root.analysis.songs.cols.tempo[i]
-                                time_signature = h5.root.analysis.songs.cols.time_signature[i]
-                                mfcc_values = None
-                                if h5.root.analysis.songs.nrows == i + 1:
-                                    mfcc_values = h5.root.analysis.segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : , :]
-                                else:
-                                    mfcc_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : h5.root.analysis.songs.cols.idx_segments_timbre[i+1], :]
-
-                                # Get values from Spotify Tracks Dataset
-                                genre = None
-                                danceability = None
-                                energy = None
-                                loudness = None
-                                valence = None
-
-                                # Iterate through dataset
-                                found = False
-                                for chunk in pd.read_csv(spotify_tracks_file_path, chunksize=1000):
-                                    for row in chunk.itertuples(index=True):
-                                        row_song_name = str(row.track_name).lower()
-                                        row_song_artist = str(row.artists).lower()
-                                        curr_song_name = song_name.lower()
-                                        curr_song_artist = artist_name.lower()
-                                        if row_song_name == curr_song_name: # TODO: consider using __contains__ both ways
-                                            if row_song_artist == curr_song_artist:
-                                                # Get values
-                                                danceability = row.danceability
-                                                energy = row.energy
-                                                genre = row.track_genre
-                                                instrumentalness = row.instrumentalness
-                                                loudness = row.loudness
-                                                valence = row.valence
-                                                # Update found and break
-                                                found = True
-                                                break
-                                        if found:
-                                            break
-
-                                # Write to CSV if corresponding entry is found in Spotify Tracks Dataset
-                                if found:
-                                    print(f"\n{counter}: Found entry for {song_name}\n")
-                                    with open(output_path, 'a') as f:
-                                        writer = csv.writer(f, delimiter=',', quotechar='|')
-                                        writer.writerow([song_name, artist_name, year, key, mode, bpm, time_signature, genre, danceability, energy, loudness, valence, instrumentalness])
-                                else:
-                                    print(f"{counter}: No entry found for {song_name}")
-                                counter += 1
-
-
-
-    # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
-    # specifically the parts for getting each value from the h5 file
     def get_data(self, msd_path: str, csv_path: str):
         # Check path provided is valid
         if not os.path.isdir(msd_path):
@@ -254,7 +161,7 @@ class Trainer():
                                         loudness=loudness,
                                         key=key,
                                         mode=mode,
-                                        bpm=bpm,
+                                        tempo=bpm,
                                         time_signature=time_signature,
                                         timbre_values=mfcc_values,
                                         valence=valence,
@@ -309,7 +216,7 @@ class Trainer():
         if song.energy == 0:
             return True
         # Check if missing BPM
-        if song.bpm == 0:
+        if song.tempo == 0:
             return True
         # Check if missing mfcc values
         if len(song.timbre_values) < 16:
@@ -373,16 +280,4 @@ if __name__ == '__main__':
         final_lr=0.0001,
         num_epochs=120,
         training_dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset'
-    )
-
-    rewrite = input("Would you like to write over merged_dataset (y/n)? ")
-    if rewrite.lower() == 'y':
-        with open('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MergedDataset/merged_dataset.csv', 'w') as f:
-            writer = csv.writer(f, delimiter=',', quotechar='|')
-            writer.writerow(['track_name', 'artists', 'year', 'key', 'mode', 'tempo', 'time_signature', 'track_genre', 'danceability', 'energy', 'loudness', 'valence', 'instrumentalness']) 
-
-    dataset_gen = trainer.merge_datasets(
-        msd_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset',
-        spotify_tracks_file_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/SpotifyTracksDataset/dataset.csv',
-        output_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MergedDataset/merged_dataset.csv'
     )
