@@ -35,7 +35,7 @@ class SongAnalysis(tables.IsDescription):
     track_id = tables.StringCol(32)
 
     # Timbre segments
-    idx_segments_timbre = tables.IntCol()
+    idx_segments_timbre = tables.IntCol() # this is mainly for aggregate files where all the segments arrays are combined into one long array. Also necessary for trainer.py
     
 class SongMusicBrainz(tables.IsDescription):
     """

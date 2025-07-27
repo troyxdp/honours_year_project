@@ -161,14 +161,17 @@ def create_hdf5_extended_msd(msd_path, csv_path, output_path):
         dir_path_1 = os.path.join(msd_path, path_dir_1)
         if len(os.listdir(dir_path_1)) == 0:
             raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
+        print(f"\nGOING INTO DIRECTORY {path_dir_1}\n")
         # Iterate through subdirectories
         for path_dir_2 in sorted(os.listdir(dir_path_1)):
             dir_path_2 = os.path.join(dir_path_1, path_dir_2)
             if len(os.listdir(dir_path_2)) == 0:
                 raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_2} is empty")
+            print(f"\nGOING INTO DIRECTORY {path_dir_1}/{path_dir_2}\n")
             # Iterate through subsubdirectories
             for path_dir_3 in sorted(os.listdir(dir_path_2)):
                 dir_path_3 = os.path.join(dir_path_2, path_dir_3)
+                print(f"\nGOING INTO DIRECTORY {path_dir_1}/{path_dir_2}/{path_dir_3}\n")
                 # Get files
                 for file_name in sorted(os.listdir(dir_path_3)):
                     file_path = os.path.join(dir_path_3, file_name)
@@ -255,7 +258,7 @@ def create_hdf5_extended_msd(msd_path, csv_path, output_path):
                             counter += 1
     print()
     print(f"Number of tracks successfully created: {success_count}")
-    print(f"Number of failures when attempting to create a track; {fail_count}")
+    print(f"Number of failures when attempting to create a track: {fail_count}")
 
 if __name__ == '__main__':
     create_csv_dataset = input("Would you like to create a CSV merged dataset? (y/n) ")
@@ -277,8 +280,7 @@ if __name__ == '__main__':
 
     create_hdf5_dataset = input("Would you like to create a HDF5 merged dataset? (y/n) ")
     if create_hdf5_dataset.lower() == 'y':
-        # msd_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongDataset'
-        msd_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSubset'
+        msd_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongDataset'
         csv_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/SpotifyTracksDataset/spotify_tracks_cleaned_data.csv'
         output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset'
 

@@ -1,6 +1,7 @@
 # Default libraries
 import os
 from typing import List
+import random
 
 # External libraries
 import psycopg2
@@ -51,19 +52,172 @@ app.add_middleware(CORSMiddleware,
 
 
 
+seed_track = None # seed track selected by user
+played_tracks = [] # list of track IDs for tracks that the user has played
+unplayed_tracks = [] # list of track IDs for tracks that the user has not played yet
+recommended_tracks = [] # recommended order of tracks (listed by track IDs) for the user to play
+
+
+
 # API GET endpoints
-@app.get('/get-recommendation/{current_track_id}') # TODO
+@app.get('/get-recommendation/{current_track_id}') # TODO: test
 def get_recommendation(current_track_id):
+    # check that the seed track has been provided
+    if seed_track is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
+    
+    # check that a non-null value was passed to endpoint
     if current_track_id is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track ID for current track playing was provided")
-    # TODO: implement rest of method where either next song on "stack" is recommended or recommendations are recalculated
+    
+    # get track ID of next recommendation (if any)
+    recommended_track_id = None # next recommended track
+    if recommended_tracks[0] == current_track_id: # if the user chose to play the recommended track
+        if len(recommended_tracks > 1): # there is a track to recommend
+            # remove current track from front of array and return next recommendation which is at front of array
+            recommended_tracks = recommended_tracks[1:]
+            recommended_track_id = recommended_tracks[0]
+        else: # there is no track to recommend
+            return JSONResponse({
+                "song": None
+            })
+    else: # if the user chose not to play the recommended track
+        if len(recommended_tracks > 1): # there is a track to recommend
+            # find index with track ID equal to current_track_id
+            index = -1
+            for i, recommended_track in enumerate(recommended_tracks):
+                if recommended_track == current_track_id:
+                    index = i
+                    break
+            
+            # remove element from array
+            recommended_tracks.pop(index)
 
-@app.get('/track-search/{search_query}') # TODO
-def track_search(search_query): 
-    ... # TODO: implement using SOUNDEX
+            # recalculate recommendations and get recommendation
+            recalculate_recommendations(current_track_id)
+            recommended_track_id = recommended_tracks[0]
+        else: # there is no track to recommend
+            return JSONResponse({
+                "song": None
+            })
+        
+    # get track data of recommended track
+    # Check if song exists
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''
+            SELECT 
+                track_id, song_name, artist_name, release_year, key, mode, bpm, time_signature, genre
+            FROM
+                track
+            WHERE
+                track_id = %s;
+            ''',
+            (recommended_track_id,)
+        )
+        record = cursor.fetchone()
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to find recommended track")
+    
+    # Check if record is None - if so, then song does not exist in database
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find song with given track ID")
+    
+    # remove track with current_track_id from unplayed_tracks
+    index = -1
+    for i, unplayed_track in enumerate(unplayed_tracks):
+        if unplayed_track == current_track_id:
+            index = i
+            break
+    if index == -1:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find track ID provided in list of unplayed tracks")
+    unplayed_tracks.pop(index)
+    
+    # Return JSON object with all the data
+    return JSONResponse(
+        {
+            'track_id': record[0], 
+            'song_name': record[1], 
+            'artist_name': record[2], 
+            'release_year': record[3], 
+            'key': record[4], 
+            'mode': record[5], 
+            'bpm': record[6], 
+            'time_signature': record[7], 
+            'genre': record[8]
+        }
+    )
 
-@app.get('/get-tracks-basic-info/start-position/{start_position}/end-position/{end_position}/sort-field/{sort_field}')
-def get_tracks_basic_info(start_position, end_position, sort_field):
+@app.get('/get-unplayed-tracks/start-position/{start_position}/end-position/{end_position}/sort-field/{sort_field}/') # TODO: implement search query; test
+def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str, search_query: str | None = None):
+    if search_query:
+        print("YAY SEWCH KWEWY!!! Still got impwement tho")
+
+    # response if there are no unplayed tracks
+    if len(unplayed_tracks) == 0:
+        return JSONResponse({
+            "songs": None,
+            "start_position": 0,
+            "end_position": 15
+        })
+    
+    # run SQL query to get all the info about the unplayed tracks
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            f'''
+            SELECT 
+                track_id, song_name, artist_name, release_year, key, mode, bpm, time_signature, genre
+            FROM
+                track
+            WHERE
+                track_id IN %s
+            ORDER BY 
+                {sort_field}
+            OFFSET %s
+            LIMIT %s;
+            ''',
+            (unplayed_tracks.tolist(), start_position, end_position - start_position)
+        )
+        records = cursor.fetchall()
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to get unplayed tracks")
+    
+    # create dicts array using retrieved data
+    to_ret = []
+    for record in records:
+        try:
+            record_dict = {
+                "track_id": record[0],
+                "song_name": record[1],
+                "artist_name": record[2],
+                "release_year": int(record[3]),
+                "key": int(record[4]),
+                "mode": int(record[5]),
+                "bpm": float(record[6]),
+                "time_signature": int(record[7]),
+                "genre": record[8]
+            }
+            to_ret.append(record_dict)
+        except TypeError as te:
+            print(te)
+
+    # return a response
+    return JSONResponse(
+        {
+            "songs": to_ret,
+            "start_position": start_position,
+            "end_position": end_position
+        }
+    )
+
+@app.get('/get-tracks-basic-info/start-position/{start_position}/end-position/{end_position}/sort-field/{sort_field}') # TODO: debug
+def get_tracks_basic_info(start_position: int, end_position: int, sort_field: str, search_query: str | None = None):
+    if search_query:
+        print("YAY SEWCH KWEWY!!! Still got impwement tho")
     # Get start/end position values as integers
     try:
         start_position = int(start_position)
@@ -127,7 +281,7 @@ def get_tracks_basic_info(start_position, end_position, sort_field):
         }
     )
 
-@app.get('/get-detailed-track-info/{track_id}')
+@app.get('/get-detailed-track-info/{track_id}') # TODO: debug
 def get_detailed_track_info(track_id):
     # Check if song exists
     cursor = conn.cursor()
@@ -172,7 +326,7 @@ def get_detailed_track_info(track_id):
         }
     )
 
-@app.get('/get-basic-track-info/{track_id}')
+@app.get('/get-basic-track-info/{track_id}') # TODO: test
 def get_basic_track_info(track_id):
     # Check if song exists
     cursor = conn.cursor()
@@ -212,9 +366,17 @@ def get_basic_track_info(track_id):
         }
     )
 
-@app.get('/end-set') # TODO
+@app.get('/end-set') # TODO: test
 def end_set():
-    ... # TODO: decide how to store currently playing track; how to store tracks selected for the set, and how to store already played tracks, and then clear all of these when this method is called
+    global seed_track
+    seed_track = None
+    global unplayed_tracks
+    unplayed_tracks = []
+    global played_tracks
+    played_tracks = []
+    global recommended_tracks
+    recommended_tracks = []
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 
@@ -235,7 +397,7 @@ class Track(BaseModel):
     bpm: float
     time_signature: int
     timbre_values: List[List[float]] | None = None
-@app.post('/upload-track')
+@app.post('/upload-track') # TODO: fix
 def upload_track(track: Track = Depends(), files: List[UploadFile] = File(...)):
     # Check number of files uploaded
     if len(files) > 1:
@@ -279,8 +441,6 @@ def upload_track(track: Track = Depends(), files: List[UploadFile] = File(...)):
             #         status_code=status.HTTP_400_BAD_REQUEST, 
             #         detail="Error: could not generate enough timbre values using the audio file provided. Please provide another audio file"
             #     )
-
-    # TODO: add "shifting" of timbre values according to the code in the MSongsDB repo
 
     # Create embedding for the track
     song = Song(
@@ -337,22 +497,97 @@ class SetTrackIDs(BaseModel):
     track_ids: List[str]
 @app.post('/select-set-tracks') # TODO
 def select_set_tracks(tracks: SetTrackIDs):
-    ... # TODO: decide how to store set tracks and implement this method
+    # check that the parameters provided are valid
+    track_ids = tracks.track_ids
+    if len(track_ids) == 0:
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track IDs were provided")
+    if len(track_ids) == 1:
+        if not seed_track is None:
+            if track_ids[0] == seed_track:
+                return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
+            
+    # check that the seed track has been provided
+    if seed_track is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
+    
+    # check that at least one of the non-seed track IDs provided are in the database
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''
+            SELECT
+                *
+            FROM
+                track
+            WHERE
+                track_id IN %s;
+            ''', (track_ids.tolist(),))
+        records = cursor.fetchall()
+    except Exception as e:
+       print(e)
+       raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database for track IDs")
+    
+    # check if any records were returned
+    if len(records) == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: no tracks were found in the database with the provided track IDs")
+    
+    # check if only seed track was provided or found
+    if len(records) == 1:
+        if records[0][0] == seed_track:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only duplicate of seed track found in provided values")
+            
+    # if one or more non-seed track values were found, add them to the unplayed_tracks and recommended_tracks lists
+    unplayed_tracks.extend([record[0] for record in records])
+    recommended_tracks.extend([record[0] for record in records])
+    recalculate_recommendations(seed_track)
+
+    # return success response
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
 
 class SeedTrackID(BaseModel):
     track_id: str
 @app.post('/select-seed-track') # TODO
 def select_seed_track(track: SeedTrackID):
-    track_id = track.track_id
-    ... # TODO: decide how to store seed track and implement this method
+    if track is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no data provided")
+    if track.track_id is None or track.track_id.strip() == '':
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: null or empty value provided for seed track ID")
+    
+    # check that seed track is in database
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''
+            SELECT
+                *
+            FROM 
+                track
+            WHERE
+                track_id = %s;
+            ''', (track.track_id,)
+        )
+        record = cursor.fetchone()
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database to find provided seed track ID")
 
+    # Check if any records were returned, i.e. if seed track is in database
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find track with given ID in database")
+    
+    # Set seed track value
+    global seed_track
+    seed_track = track.track_id
 
+    # return success response
+    return Response(status_code=status.HTTP_202_ACCEPTED)
 
 # API PUT endpoints
 class EditTracks(BaseModel):
     original_track: Track
     editted_track: Track
-@app.put('/edit-track')
+@app.put('/edit-track') # TODO: test
 def edit_track(tracks: EditTracks):
     # Check if song is in database
     # TODO: get SELECT query to return NamedTuple so it is easier to check if energy etc. has been changed
@@ -432,7 +667,7 @@ def add_set_tracks(tracks: SetTrackIDs):
 
 # API DELETE endpoints
 # Delete track from database and delete audio file
-@app.put('/delete-track/{track_id}')
+@app.put('/delete-track/{track_id}') # TODO: test
 def delete_track(track_id):
     # Check if song exists
     cursor = conn.cursor()
@@ -516,13 +751,17 @@ def is_valid_track(track: Track):
     return True
 
 # TODO: implement calculating timbre values - calculate MFCC values and then reduce them to 12 dimensions using PCA according to ChatGPT
-def calculate_timbre_values(file: UploadFile):
-    ...
+def calculate_timbre_values(file: UploadFile): # TODO: implement
+    return np.random.rand(20, 12)
 
-def get_embedding(song: Song):
+def get_embedding(song: Song): 
     embedder.set_input(song.get_nn_input())
     embedder.forward()
     return embedder.get_output()
+
+def recalculate_recommendations(track_id): # TODO: implement TSP algorithms
+    # TODO: implement properly
+    random.shuffle(recommended_tracks)
     
 
 
