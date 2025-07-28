@@ -54,8 +54,8 @@ if __name__ == '__main__':
     # Create trainer object
     trainer = Trainer(
         training_network=nn,
-        initial_lr=0.005,
-        final_lr=0.0005,
+        initial_lr=0.001,
+        final_lr=0.0001,
         num_epochs=120,
         dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset',
         output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/train_networks'

@@ -304,6 +304,7 @@ class Trainer():
             # train cycle
             train_cycle_start_time = time.time()
             train_error_this_epoch = 0
+            num_train_samples = 0
             for file_path in tqdm(file_paths[:num_train_files], desc="Training cycle progress: ", ncols=150):
                 # get song and feed it forward through network
                 song = self.get_song_data_from_file(file_path)
@@ -322,17 +323,21 @@ class Trainer():
                 # backpropogate
                 error_prime = np.subtract(output_value, input_value)
                 self.training_network.back_propogate(lr=lr, error_prime=error_prime)
+
+                num_train_samples += 1
             
             # save statistics
             train_cycle_time = time.time() - train_cycle_start_time
             train_stat = EpochStatistics(train_error_this_epoch, train_cycle_time)
             train_stats.append(train_stat)
             print(f"Training loss: {float(train_error_this_epoch)}")
+            print(f"Average training loss: {float(train_error_this_epoch) / num_train_samples}")
             # print(f"Training time: {train_cycle_time}s") # commenting out because tqdm shows time
 
             # validation cycle
             val_error_this_epoch = 0
             val_cycle_start_time = time.time()
+            num_val_samples = 0
             for file_path in tqdm(file_paths[num_train_files:num_train_files+num_val_files], desc="Validation cycle progress: ", ncols=150):
                 # get song and feed it forward through network
                 song = self.get_song_data_from_file(file_path)
@@ -348,23 +353,26 @@ class Trainer():
                 error = np.dot(np.subtract(input_value, output_value), np.subtract(input_value, output_value))
                 val_error_this_epoch += error
 
+                num_val_samples += 1
+
             # save statistics 
             val_cycle_time = time.time() - val_cycle_start_time
             val_stat = EpochStatistics(val_error_this_epoch, val_cycle_time)
             val_stats.append(val_stat)
             print(f"Validation loss: {float(val_error_this_epoch)}")
+            print(f"Average training loss: {float(val_error_this_epoch) / num_val_samples}")
             # print(f"Validation time: {val_cycle_time}s")  # commenting out because tqdm shows time
 
             # save model
+            if train_error_this_epoch < best_train_loss:
+                print("New best train loss!")
+                self.training_network.save_network(os.path.join(self.output_folder, 'best_train_loss_network.pkl'))
+                best_train_loss = train_error_this_epoch
             if val_error_this_epoch < best_val_loss:
                 print("New best val loss!")
                 self.training_network.save_network(os.path.join(self.output_folder, 'best_val_loss_network.pkl'))
                 best_val_loss = val_error_this_epoch
                 best_val_loss_epoch = epoch
-            if train_error_this_epoch < best_train_loss:
-                print("New best train loss!")
-                self.training_network.save_network(os.path.join(self.output_folder, 'best_train_loss_network.pkl'))
-                best_train_loss = train_error_this_epoch
             if (epoch + 1) % self.checkpoint_epoch == 0:
                 print(f"Checkpoint save at epoch {epoch + 1}")
                 self.training_network.save_network(os.path.join(self.output_folder, f"checkpoint_epoch_{epoch + 1}_save.pkl"))
