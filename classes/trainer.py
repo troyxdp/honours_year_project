@@ -360,7 +360,7 @@ class Trainer():
             val_stat = EpochStatistics(val_error_this_epoch, val_cycle_time)
             val_stats.append(val_stat)
             print(f"Validation loss: {float(val_error_this_epoch)}")
-            print(f"Average training loss: {float(val_error_this_epoch) / num_val_samples}")
+            print(f"Average validation loss: {float(val_error_this_epoch) / num_val_samples}")
             # print(f"Validation time: {val_cycle_time}s")  # commenting out because tqdm shows time
 
             # save model
@@ -383,6 +383,8 @@ class Trainer():
                 break
 
             print()
+
+        self.training_network.save_network(os.path.join(self.output_folder, "last.pkl"))
 
         train_end_time = time.time() - train_start_time
         print(f"Training completed in {train_end_time / 3600} hours")

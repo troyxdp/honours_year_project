@@ -5,6 +5,8 @@ MergedDataset/
 MillionSongSpotifyTracksDataset/
 MillionSongDataset/
 
+Statistics/
+
 class/__pycache__/
 __pycache__/
 .vscode/
