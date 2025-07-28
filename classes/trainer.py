@@ -54,6 +54,7 @@ class Trainer():
         final_lr: float,
         num_epochs: int,
         output_folder: str,
+        early_stop_threshold=20,
         checkpoint_epoch=10,
         train_percentage=80,
         val_percentage_of_train=20,
@@ -84,6 +85,7 @@ class Trainer():
         self.val_percentage_of_train = val_percentage_of_train
         self.output_folder = output_folder
         self.checkpoint_epoch = checkpoint_epoch
+        self.early_stop_threshold = early_stop_threshold
 
     def get_file_paths(self):
         file_paths = []
@@ -290,8 +292,10 @@ class Trainer():
         val_stats = []
         best_train_loss = math.inf
         best_val_loss = math.inf
+        best_val_loss_epoch = -1
 
         # start training
+        train_start_time = time.time()
         for epoch in range(self.num_epochs):
             print(f"Epoch {epoch + 1}...")
             # get learning rate
@@ -356,6 +360,7 @@ class Trainer():
                 print("New best val loss!")
                 self.training_network.save_network(os.path.join(self.output_folder, 'best_val_loss_network.pkl'))
                 best_val_loss = val_error_this_epoch
+                best_val_loss_epoch = epoch
             if train_error_this_epoch < best_train_loss:
                 print("New best train loss!")
                 self.training_network.save_network(os.path.join(self.output_folder, 'best_train_loss_network.pkl'))
@@ -364,8 +369,17 @@ class Trainer():
                 print(f"Checkpoint save at epoch {epoch + 1}")
                 self.training_network.save_network(os.path.join(self.output_folder, f"checkpoint_epoch_{epoch + 1}_save.pkl"))
 
+            # early termination if no improvement has been seen in validation loss for a set number of epochs
+            if epoch - self.early_stop_threshold > best_val_loss_epoch:
+                print(f"\nTerminating training early - no improvement seen in {self.early_stop_threshold} epochs")
+                break
+
             print()
+
+        train_end_time = time.time() - train_start_time
+        print(f"Training completed in {train_end_time / 3600} hours")
             
+        # get epoch numbers for plotting purposes
         epoch_nums = range(self.num_epochs)
 
         # plot training loss per epoch
@@ -399,9 +413,6 @@ class Trainer():
         plt.ylabel("Validation Time (seconds)")
         plt.title("Validation Time Elapsed per Epoch")
         plt.show()
-
-    def validate_model(self):
-        pass
 
     def set_hyperparameters(
         self,
@@ -443,13 +454,3 @@ class Trainer():
     
     def _determine_epoch_learning_rate(self, epoch, num_epochs, initial_lr, final_lr):
         return initial_lr + epoch * ((final_lr - initial_lr) / (num_epochs - 1)) # num_epochs - 1 so that it cancels with epoch on the largest value of epoch
-
-if __name__ == '__main__':
-    nn = NeuralNetwork()
-    trainer = Trainer(
-        training_network=nn,
-        initial_lr=0.001,
-        final_lr=0.0001,
-        num_epochs=120,
-        dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongDataset'
-    )

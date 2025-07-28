@@ -138,7 +138,6 @@ def is_same_artists(song_1_artists, song_2_artists):
     # Return true
     return True
 
-
 def create_hdf5_extended_msd(msd_path, csv_path, output_path):
     # Check MSD path provided is valid
     if not os.path.isdir(msd_path):
