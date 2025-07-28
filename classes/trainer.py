@@ -1,10 +1,14 @@
 import os
-import gc
-import csv
+import time
+import math
 
 import numpy as np
 import pandas as pd
 import tables
+from tqdm import tqdm
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 
 try:
     from neural_network import NeuralNetwork
@@ -49,8 +53,11 @@ class Trainer():
         initial_lr: float,
         final_lr: float,
         num_epochs: int,
-        training_dataset_path=None,
-        validation_dataset_path=None,
+        output_folder: str,
+        checkpoint_epoch=10,
+        train_percentage=80,
+        val_percentage_of_train=20,
+        dataset_path=None,
         momentum=None, 
         regularization_lambda=None,
         dropout_rate=None
@@ -70,25 +77,93 @@ class Trainer():
         # Initialize training statistics
         self.model_statistics_per_epoch = []
 
-        # Get dataset directories
-        self.training_dataset_path = training_dataset_path
-        self.validation_dataset_path = validation_dataset_path
+        # Set "non-technical" hyperparameters
+        self.dataset_path = dataset_path
+        self.train_percentage = train_percentage
+        self.test_percentage = 100 - train_percentage
+        self.val_percentage_of_train = val_percentage_of_train
+        self.output_folder = output_folder
+        self.checkpoint_epoch = checkpoint_epoch
 
+    def get_file_paths(self):
+        file_paths = []
+        for path_dir_1 in os.listdir(self.dataset_path):
+            dir_path_1 = os.path.join(self.dataset_path, path_dir_1)
+            if len(os.listdir(dir_path_1)) == 0:
+                raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
+            # Iterate through subdirectories
+            for path_dir_2 in os.listdir(dir_path_1):
+                dir_path_2 = os.path.join(dir_path_1, path_dir_2)
+                if len(os.listdir(dir_path_2)) == 0:
+                    raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_2} is empty")
+                # Iterate through subsubdirectories
+                for path_dir_3 in os.listdir(dir_path_2):
+                    dir_path_3 = os.path.join(dir_path_2, path_dir_3)
+                    # Get files
+                    for file_name in os.listdir(dir_path_3):
+                        file_paths.append(os.path.join(dir_path_3, file_name))
+        return file_paths
+    
+    def get_song_data_from_file(self, file_path):
+        # Check if file exists. If not, raise exception
+        if not os.path.exists(file_path):
+            raise FileNotFoundError
+        
+        # Get file data
+        with tables.open_file(file_path, mode='r') as h5:
+            # Get values for dataset
+            song_name = str(h5.root.metadata.songs.cols.title[0])[2:-1]
+            artist_name = str(h5.root.metadata.songs.cols.artist_name[0])[2:-1]
+            year = h5.root.musicbrainz.songs.cols.year[0]
+            key = h5.root.analysis.songs.cols.key[0]
+            mode = h5.root.analysis.songs.cols.mode[0]
+            bpm = h5.root.analysis.songs.cols.tempo[0]
+            time_signature = h5.root.analysis.songs.cols.time_signature[0]
+            mfcc_values = None
+            if h5.root.analysis.songs.nrows == 0 + 1:
+                mfcc_values = h5.root.analysis.segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[0] : , :]
+            else:
+                mfcc_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[0] : h5.root.analysis.songs.cols.idx_segments_timbre[0+1], :]
+            
+            # Get values from Spotify Tracks Dataset
+            danceability = h5.root.analysis.songs.cols.danceability[0]
+            energy = h5.root.analysis.songs.cols.energy[0]
+            loudness = h5.root.analysis.songs.cols.loudness[0]
+            valence = h5.root.analysis.songs.cols.valence[0]
+            instrumentalness = h5.root.analysis.songs.cols.instrumentalness[0]
 
+            # Write to CSV if corresponding entry is found in Spotify Tracks Dataset
+            song = Song(
+                song_name=song_name,
+                artist_name=artist_name,
+                danceability=danceability,
+                energy=energy,
+                loudness=loudness,
+                key=key,
+                mode=mode,
+                tempo=bpm,
+                time_signature=time_signature,
+                timbre_values=mfcc_values,
+                valence=valence,
+                instrumentalness=instrumentalness
+            )
+
+            # Return fetched data
+            return song
 
     # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
     # specifically the parts for getting each value from the h5 file
-    def get_data(self, msd_path: str, csv_path: str):
+    def get_data(self):
         # Check path provided is valid
-        if not os.path.isdir(msd_path):
-            raise FileNotFoundError(f"Error: could not find directory {msd_path}")
+        if not os.path.isdir(self.dataset_path):
+            raise FileNotFoundError(f"Error: could not find directory {self.dataset_path}")
 
         # Get data
-        if len(os.listdir(msd_path)) == 0:
-            raise FileNotFoundError(f"Error: could not find dataset --- {msd_path} is empty")
+        if len(os.listdir(self.dataset_path)) == 0:
+            raise FileNotFoundError(f"Error: could not find dataset --- {self.dataset_path} is empty")
         # Iterate through directory provided
-        for path_dir_1 in sorted(os.listdir(msd_path)):
-            dir_path_1 = os.path.join(msd_path, path_dir_1)
+        for path_dir_1 in sorted(os.listdir(self.dataset_path)):
+            dir_path_1 = os.path.join(self.dataset_path, path_dir_1)
             if len(os.listdir(dir_path_1)) == 0:
                 raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
             # Iterate through subdirectories
@@ -120,57 +195,30 @@ class Trainer():
                                     mfcc_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : h5.root.analysis.songs.cols.idx_segments_timbre[i+1], :]
                                 
                                 # Get values from Spotify Tracks Dataset
-                                genre = None
-                                danceability = None
-                                energy = None
-                                loudness = None
-                                valence = None
-
-                                # Iterate through dataset
-                                found = False
-                                for chunk in pd.read_csv(csv_path, chunksize=1000):
-                                    for row in chunk.itertuples(index=True):
-                                        row_song_name = str(row.track_name).lower()
-                                        row_song_artist = str(row.artists).lower()
-                                        curr_song_name = song_name.lower()
-                                        curr_song_artist = artist_name.lower()
-                                        if row_song_name == curr_song_name:
-                                            if row_song_artist == curr_song_artist:
-                                                # Get values
-                                                danceability = row.danceability
-                                                energy = row.energy
-                                                genre = row.track_genre
-                                                instrumentalness = row.instrumentalness
-                                                loudness = row.loudness
-                                                valence = row.valence
-                                                # Update found and break
-                                                found = True
-                                                break
-                                        if found:
-                                            break
+                                danceability = h5.root.analysis.songs.cols.danceability[i]
+                                energy = h5.root.analysis.songs.cols.energy[i]
+                                loudness = h5.root.analysis.songs.cols.loudness[i]
+                                valence = h5.root.analysis.songs.cols.valence[i]
+                                instrumentalness = h5.root.analysis.songs.cols.instrumentalness[i]
 
                                 # Write to CSV if corresponding entry is found in Spotify Tracks Dataset
-                                if found:
-                                    song = Song(
-                                        song_name=song_name,
-                                        artist_name=artist_name,
-                                        release_year=year,
-                                        genre=genre,
-                                        danceability=danceability,
-                                        energy=energy,
-                                        loudness=loudness,
-                                        key=key,
-                                        mode=mode,
-                                        tempo=bpm,
-                                        time_signature=time_signature,
-                                        timbre_values=mfcc_values,
-                                        valence=valence,
-                                        instrumentalness=instrumentalness
-                                    )
+                                song = Song(
+                                    song_name=song_name,
+                                    artist_name=artist_name,
+                                    release_year=year,
+                                    danceability=danceability,
+                                    energy=energy,
+                                    loudness=loudness,
+                                    key=key,
+                                    mode=mode,
+                                    tempo=bpm,
+                                    time_signature=time_signature,
+                                    timbre_values=mfcc_values,
+                                    valence=valence,
+                                    instrumentalness=instrumentalness
+                                )
 
-                                    yield song
-
-
+                                yield song
 
     def normalize_song(self, song: Song):
         # Normalize danceability
@@ -231,7 +279,126 @@ class Trainer():
         pass
 
     def train_model(self):
-        pass
+        # get file paths for dataset as well as number of training, validation, and testing items
+        file_paths = self.get_file_paths()
+        num_train_val_files = int(len(file_paths) * (self.train_percentage / 100.0))
+        num_val_files = int(num_train_val_files * (self.val_percentage_of_train / 100.0))
+        num_train_files = num_train_val_files - num_val_files
+
+        # lists to store statistics for each epoch
+        train_stats = []
+        val_stats = []
+        best_train_loss = math.inf
+        best_val_loss = math.inf
+
+        # start training
+        for epoch in range(self.num_epochs):
+            print(f"Epoch {epoch + 1}...")
+            # get learning rate
+            lr = self._determine_epoch_learning_rate(epoch, self.num_epochs, self.initial_lr, self.final_lr)
+
+            # train cycle
+            train_cycle_start_time = time.time()
+            train_error_this_epoch = 0
+            for file_path in tqdm(file_paths[:num_train_files], desc="Training cycle progress: ", ncols=150):
+                # get song and feed it forward through network
+                song = self.get_song_data_from_file(file_path)
+                try:
+                    input_value = song.get_nn_input()
+                except ValueError:
+                    continue
+                self.training_network.set_input(input_value)
+                self.training_network.feed_forward()
+                output_value = self.training_network.get_output()
+
+                # get error of output for statistics
+                error = np.dot(np.subtract(input_value, output_value), np.subtract(input_value, output_value))
+                train_error_this_epoch += error
+
+                # backpropogate
+                error_prime = np.subtract(output_value, input_value)
+                self.training_network.back_propogate(lr=lr, error_prime=error_prime)
+            
+            # save statistics
+            train_cycle_time = time.time() - train_cycle_start_time
+            train_stat = EpochStatistics(train_error_this_epoch, train_cycle_time)
+            train_stats.append(train_stat)
+            print(f"Training loss: {float(train_error_this_epoch)}")
+            # print(f"Training time: {train_cycle_time}s") # commenting out because tqdm shows time
+
+            # validation cycle
+            val_error_this_epoch = 0
+            val_cycle_start_time = time.time()
+            for file_path in tqdm(file_paths[num_train_files:num_train_files+num_val_files], desc="Validation cycle progress: ", ncols=150):
+                # get song and feed it forward through network
+                song = self.get_song_data_from_file(file_path)
+                try:
+                    input_value = song.get_nn_input()
+                except ValueError:
+                    continue
+                self.training_network.set_input(input_value)
+                self.training_network.feed_forward()
+                output_value = self.training_network.get_output()
+
+                # get error of output for statistics
+                error = np.dot(np.subtract(input_value, output_value), np.subtract(input_value, output_value))
+                val_error_this_epoch += error
+
+            # save statistics 
+            val_cycle_time = time.time() - val_cycle_start_time
+            val_stat = EpochStatistics(val_error_this_epoch, val_cycle_time)
+            val_stats.append(val_stat)
+            print(f"Validation loss: {float(val_error_this_epoch)}")
+            # print(f"Validation time: {val_cycle_time}s")  # commenting out because tqdm shows time
+
+            # save model
+            if val_error_this_epoch < best_val_loss:
+                print("New best val loss!")
+                self.training_network.save_network(os.path.join(self.output_folder, 'best_val_loss_network.pkl'))
+                best_val_loss = val_error_this_epoch
+            if train_error_this_epoch < best_train_loss:
+                print("New best train loss!")
+                self.training_network.save_network(os.path.join(self.output_folder, 'best_train_loss_network.pkl'))
+                best_train_loss = train_error_this_epoch
+            if (epoch + 1) % self.checkpoint_epoch == 0:
+                print(f"Checkpoint save at epoch {epoch + 1}")
+                self.training_network.save_network(os.path.join(self.output_folder, f"checkpoint_epoch_{epoch + 1}_save.pkl"))
+
+            print()
+            
+        epoch_nums = range(self.num_epochs)
+
+        # plot training loss per epoch
+        train_loss_values = [epoch_stat.get_loss() for epoch_stat in train_stats]
+        plt.plot(epoch_nums, train_loss_values)
+        plt.xlabel("Epochs")
+        plt.ylabel("Training Loss")
+        plt.title("Training Loss per Epoch")
+        plt.show()
+
+        # plot validation loss per epoch
+        val_loss_values = [epoch_stat.get_loss() for epoch_stat in val_stats]
+        plt.plot(epoch_nums, val_loss_values)
+        plt.xlabel("Epochs")
+        plt.ylabel("Validation Loss")
+        plt.title("Validation Loss per Epoch")
+        plt.show()
+
+        # plot training time per epoch
+        train_time_values = [epoch_stat.get_epoch_time() for epoch_stat in train_stats]
+        plt.plot(epoch_nums, train_time_values)
+        plt.xlabel("Epochs")
+        plt.ylabel("Training Time (seconds)")
+        plt.title("Training Time Elapsed per Epoch")
+        plt.show()
+
+        # plot validation time per epoch
+        val_time_values = [epoch_stat.get_epoch_time() for epoch_stat in val_stats]
+        plt.plot(epoch_nums, val_time_values)
+        plt.xlabel("Epochs")
+        plt.ylabel("Validation Time (seconds)")
+        plt.title("Validation Time Elapsed per Epoch")
+        plt.show()
 
     def validate_model(self):
         pass
@@ -270,7 +437,12 @@ class Trainer():
     def get_curr_training_statistics(self):
         return self.model_statistics_per_epoch
 
-
+    # adapted from https://medium.com/@piyushkashyap045/mastering-weight-initialization-in-neural-networks-a-beginners-guide-6066403140e9
+    def get_he_initialization(n_inputs, n_outputs):
+        return np.random.normal(0, np.sqrt(2 / n_inputs), (n_outputs, n_inputs))
+    
+    def _determine_epoch_learning_rate(self, epoch, num_epochs, initial_lr, final_lr):
+        return initial_lr + epoch * ((final_lr - initial_lr) / (num_epochs - 1)) # num_epochs - 1 so that it cancels with epoch on the largest value of epoch
 
 if __name__ == '__main__':
     nn = NeuralNetwork()
@@ -279,5 +451,5 @@ if __name__ == '__main__':
         initial_lr=0.001,
         final_lr=0.0001,
         num_epochs=120,
-        training_dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset'
+        dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongDataset'
     )

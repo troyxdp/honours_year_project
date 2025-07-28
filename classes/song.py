@@ -11,7 +11,7 @@ class Song():
         self,
         song_name: str,
         artist_name: str,
-        release_year: int,
+        # release_year: int,
         # genre: list,
         danceability: float,
         energy: float,
@@ -31,7 +31,7 @@ class Song():
         self.song_id = song_id
         self.song_name = song_name
         self.artists = artist_name
-        self.release_year = release_year
+        # self.release_year = release_year
 
         # Spotify Attribuutes
         self.danceability = danceability
@@ -74,6 +74,9 @@ class Song():
         nn_input.extend([x, y, z]) # + LENGTH 3
 
         # Get BPM 2D vector - pretty sure this is right but DOUBLE CHECK THIS
+        if self.tempo == 0:
+            raise ValueError("Error: tempo is not provided")
+        
         if self.tempo > 159:
             while self.tempo > 159:
                 self.tempo /= 2
@@ -99,9 +102,9 @@ class Song():
 
         return np.array(nn_input) # TOTAL LENGTH 209 (with genre) 202 (without genre)
         
-    def get_genre_encoding(self):
-        # TODO: implement a genre encoding
-        return [0, 0, 0, 0, 0, 0, 1]
+    # def get_genre_encoding(self):
+    #     # TODO: implement a genre encoding
+    #     return [0, 0, 0, 0, 0, 0, 1]
 
     def get_camelot_wheel_value(self):
         # key number: camelot number

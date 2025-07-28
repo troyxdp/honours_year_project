@@ -14,60 +14,51 @@ def relu(z_values: np.ndarray):
     return to_ret
 
 if __name__ == '__main__':
-    # number of neurons: 209 -> 128 -> 64 -> 128 -> 209
+    # number of neurons: 202 -> 128 -> 64 -> 32 -> 64 -> 128 -> 209
     nn = NeuralNetwork(
-        input_size=209,
-        output_size=209
+        input_size=202,
+        output_size=202
     )
     # Layer 1
-    layer_1_weights = np.random.rand(128, 209)
-    layer_1_biases = np.random.rand(128)
-    layer_1 = FeedForwardLayer(layer_1_weights, layer_1_biases, relu)
+    layer_1_weights = Trainer.get_he_initialization(202, 128)
+    layer_1_biases = np.random.rand(128) / 100
+    layer_1 = FeedForwardLayer(layer_1_weights, layer_1_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
     # Layer 2
-    layer_2_weights = np.random.rand(64, 128)
-    layer_2_biases = np.random.rand(64)
-    layer_2 = FeedForwardLayer(layer_2_weights, layer_2_biases, relu)
+    layer_2_weights = Trainer.get_he_initialization(128, 64)
+    layer_2_biases = np.random.rand(64) / 100
+    layer_2 = FeedForwardLayer(layer_2_weights, layer_2_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
     # Layer 3
-    layer_3_weights = np.random.rand(128, 64)
-    layer_3_biases = np.random.rand(128)
-    layer_3 = FeedForwardLayer(layer_3_weights, layer_3_biases, relu)
+    layer_3_weights = Trainer.get_he_initialization(64, 32)
+    layer_3_biases = np.random.rand(32) / 100
+    layer_3 = FeedForwardLayer(layer_3_weights, layer_3_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
     # Layer 4
-    layer_4_weights = np.random.rand(209, 128)
-    layer_4_biases = np.random.rand(209)
-    layer_4 = FeedForwardLayer(layer_4_weights, layer_4_biases, relu)
+    layer_4_weights = Trainer.get_he_initialization(32, 64)
+    layer_4_biases = np.random.rand(64) / 100
+    layer_4 = FeedForwardLayer(layer_4_weights, layer_4_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
+    # Layer 3
+    layer_5_weights = Trainer.get_he_initialization(64, 128)
+    layer_5_biases = np.random.rand(128) / 100
+    layer_5 = FeedForwardLayer(layer_5_weights, layer_5_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
+    # Layer 4
+    layer_6_weights = Trainer.get_he_initialization(128, 202)
+    layer_6_biases = np.random.rand(202) / 100
+    layer_6 = FeedForwardLayer(layer_6_weights, layer_6_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
     # Add each layer
     nn.append_layer(layer_1)
     nn.append_layer(layer_2)
     nn.append_layer(layer_3)
     nn.append_layer(layer_4)
+    nn.append_layer(layer_5)
+    nn.append_layer(layer_6)
 
     # Create trainer object
     trainer = Trainer(
         training_network=nn,
-        initial_lr=0.001,
-        final_lr=0.0001,
-        num_epochs=120,
-        training_dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset'
+        initial_lr=0.005,
+        final_lr=0.0005,
+        num_epochs=20,
+        dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset',
+        output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/train_networks'
     )
 
-    # Demonstrate feed forward of network
-    for item in trainer.get_data('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MillionSongSubset', '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/MergedDataset/merged_dataset.csv'):
-        # Check for missing values
-        print()
-        if trainer.is_missing_values(item):
-            print(f"Song {item.song_name} is missing values")
-            continue
-        
-        # Normalize song
-        try:
-            trainer.normalize_song(item)
-        except ValueError:
-            print(f"Error: invalid values in song {item.song_name} --- cannot normalize")
-            continue
-
-        # Run through neural network
-        nn.set_input(item.get_nn_input())
-        nn.feed_forward()
-        output = nn.get_output()
-        print(f"Successfully ran song {item.song_name} through pipeline")
-        print(f"First 10 values in output: {output[:10]}")
+    trainer.train_model()

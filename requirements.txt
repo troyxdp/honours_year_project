@@ -11,3 +11,6 @@ fastapi
 uvicorn
 
 python-dotenv
+
+tqdm
+matplotlib
