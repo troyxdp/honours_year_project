@@ -14,8 +14,8 @@ from dotenv import load_dotenv
 import numpy as np
 
 # Code I wrote
+from classes.recommender import Recommender
 from classes.neural_network import NeuralNetwork
-from classes.neural_network import FeedForwardLayer
 from classes.song import Song
 
 # TODO: add better logging
@@ -43,6 +43,9 @@ conn = psycopg2.connect(
 # Load embedding neural network
 embedder = NeuralNetwork.load_network(file_path=NEURAL_NETWORK_PATH)
 
+# Load recommender
+recommender = Recommender()
+
 # Create FastAPI app
 app = FastAPI()
 app.add_middleware(CORSMiddleware,
@@ -52,18 +55,34 @@ app.add_middleware(CORSMiddleware,
 
 
 
-seed_track = None # seed track selected by user
-played_tracks = [] # list of track IDs for tracks that the user has played
-unplayed_tracks = [] # list of track IDs for tracks that the user has not played yet
-recommended_tracks = [] # recommended order of tracks (listed by track IDs) for the user to play
-
-
-
 # API GET endpoints
-@app.get('/get-recommendation/{current_track_id}') # TODO: test
-def get_recommendation(current_track_id):
+@app.get('/get-next-recommendation/{current_track_id}') # TODO: test new Recommender
+def get_next_recommendation(current_track_id):
+    # check if current_track_id exists in database
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''
+            SELECT
+                track_id
+            FROM
+                track
+            WHERE
+                track_id=%s;
+            ''',
+            (current_track_id,)
+        )
+        record = cursor.fetchone()
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to see if current track is in database")
+
+    # check if a record was found
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find current track playing in database")
+    
     # check that the seed track has been provided
-    if seed_track is None:
+    if recommender.is_current_track_id_set():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
     
     # check that a non-null value was passed to endpoint
@@ -71,35 +90,11 @@ def get_recommendation(current_track_id):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track ID for current track playing was provided")
     
     # get track ID of next recommendation (if any)
-    recommended_track_id = None # next recommended track
-    if recommended_tracks[0] == current_track_id: # if the user chose to play the recommended track
-        if len(recommended_tracks > 1): # there is a track to recommend
-            # remove current track from front of array and return next recommendation which is at front of array
-            recommended_tracks = recommended_tracks[1:]
-            recommended_track_id = recommended_tracks[0]
-        else: # there is no track to recommend
-            return JSONResponse({
-                "song": None
-            })
-    else: # if the user chose not to play the recommended track
-        if len(recommended_tracks > 1): # there is a track to recommend
-            # find index with track ID equal to current_track_id
-            index = -1
-            for i, recommended_track in enumerate(recommended_tracks):
-                if recommended_track == current_track_id:
-                    index = i
-                    break
-            
-            # remove element from array
-            recommended_tracks.pop(index)
-
-            # recalculate recommendations and get recommendation
-            recalculate_recommendations(current_track_id)
-            recommended_track_id = recommended_tracks[0]
-        else: # there is no track to recommend
-            return JSONResponse({
-                "song": None
-            })
+    recommended_track_id = recommender.get_next_recommendation(current_track_id)
+    if not recommended_track_id:
+        return JSONResponse({
+            "song": None
+        })
         
     # get track data of recommended track
     # Check if song exists
@@ -125,16 +120,6 @@ def get_recommendation(current_track_id):
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find song with given track ID")
     
-    # remove track with current_track_id from unplayed_tracks
-    index = -1
-    for i, unplayed_track in enumerate(unplayed_tracks):
-        if unplayed_track == current_track_id:
-            index = i
-            break
-    if index == -1:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find track ID provided in list of unplayed tracks")
-    unplayed_tracks.pop(index)
-    
     # Return JSON object with all the data
     return JSONResponse(
         {
@@ -156,7 +141,7 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
         print("YAY SEWCH KWEWY!!! Still got impwement tho")
 
     # response if there are no unplayed tracks
-    if len(unplayed_tracks) == 0:
+    if recommender.is_unplayed_tracks():
         return JSONResponse({
             "songs": None,
             "start_position": 0,
@@ -179,7 +164,7 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
             OFFSET %s
             LIMIT %s;
             ''',
-            (unplayed_tracks.tolist(), start_position, end_position - start_position)
+            (recommender.get_unplayed_tracks(), start_position, end_position - start_position)
         )
         records = cursor.fetchall()
     except Exception as e:
@@ -368,14 +353,7 @@ def get_basic_track_info(track_id):
 
 @app.get('/end-set') # TODO: test
 def end_set():
-    global seed_track
-    seed_track = None
-    global unplayed_tracks
-    unplayed_tracks = []
-    global played_tracks
-    played_tracks = []
-    global recommended_tracks
-    recommended_tracks = []
+    recommender.reset_recommender()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -473,15 +451,14 @@ def upload_track(track: Track = Depends(), files: List[UploadFile] = File(...)):
         cursor.execute(
             '''
             INSERT
-                INTO track(track_id, song_name, artist_name, release_year, genre, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, timbre_values, embedding, audio_file_path)
+                INTO track(track_id, song_name, artist_name, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, timbre_values, embedding, audio_file_path)
             VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
             ''',
             (
-                track.track_id, track.song_name, track.artist_name, track.release_year, track.genre, 
-                track.danceability, track.energy, track.loudness, track.valence, track.instrumentalness, 
-                track.key, track.mode, track.bpm, track.time_signature, track.timbre_values,
-                embedding.tolist(), audio_file_path
+                track.track_id, track.song_name, track.artist_name, track.danceability, track.energy, 
+                track.loudness, track.valence, track.instrumentalness, track.key, track.mode, 
+                track.bpm, track.time_signature, track.timbre_values, embedding.tolist(), audio_file_path
             )
         )
         conn.commit()
@@ -495,19 +472,19 @@ def upload_track(track: Track = Depends(), files: List[UploadFile] = File(...)):
 
 class SetTrackIDs(BaseModel):
     track_ids: List[str]
-@app.post('/select-set-tracks') # TODO
+@app.post('/select-set-tracks') # TODO: test new Recommender
 def select_set_tracks(tracks: SetTrackIDs):
     # check that the parameters provided are valid
     track_ids = tracks.track_ids
     if len(track_ids) == 0:
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track IDs were provided")
     if len(track_ids) == 1:
-        if not seed_track is None:
-            if track_ids[0] == seed_track:
+        if recommender.is_current_track_id_set(): # check if seed track is set
+            if track_ids[0] == recommender.get_current_track_id(): # check if provided track is the seed track
                 return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
             
     # check that the seed track has been provided
-    if seed_track is None:
+    if recommender.is_current_track_id_set():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
     
     # check that at least one of the non-seed track IDs provided are in the database
@@ -533,21 +510,24 @@ def select_set_tracks(tracks: SetTrackIDs):
     
     # check if only seed track was provided or found
     if len(records) == 1:
-        if records[0][0] == seed_track:
+        if records[0][0] == recommender.get_current_track_id():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only duplicate of seed track found in provided values")
             
     # if one or more non-seed track values were found, add them to the unplayed_tracks and recommended_tracks lists
-    unplayed_tracks.extend([record[0] for record in records])
-    recommended_tracks.extend([record[0] for record in records])
-    recalculate_recommendations(seed_track)
-
+    selected_track_ids = [record[0] for record in records]
+    try:
+        recommender.init_selected_track_ids(selected_track_ids)
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: cannot select tracks for a set before setting seed track")
+    
     # return success response
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
 class SeedTrackID(BaseModel):
     track_id: str
-@app.post('/select-seed-track') # TODO
+@app.post('/select-seed-track') # TODO: test new Recommender
 def select_seed_track(track: SeedTrackID):
     if track is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no data provided")
@@ -577,9 +557,10 @@ def select_seed_track(track: SeedTrackID):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find track with given ID in database")
     
     # Set seed track value
-    global seed_track
-    seed_track = track.track_id
-
+    try:
+        recommender.set_seed_track_id(track.track_id)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.__str__())
     # return success response
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
@@ -660,8 +641,8 @@ def edit_track(tracks: EditTracks):
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @app.put('/add-set-tracks')
-def add_set_tracks(tracks: SetTrackIDs):
-    ... # TODO: decide how to store set tracks and implement this method
+def add_set_tracks(tracks: SetTrackIDs): # TODO
+    ... 
 
 
 
@@ -758,11 +739,6 @@ def get_embedding(song: Song):
     embedder.set_input(song.get_nn_input())
     embedder.forward()
     return embedder.get_output()
-
-def recalculate_recommendations(track_id): # TODO: implement TSP algorithms
-    # TODO: implement properly
-    random.shuffle(recommended_tracks)
-    
 
 
 # Run API

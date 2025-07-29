@@ -11,12 +11,8 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
-try:
-    from neural_network import NeuralNetwork
-    from song import Song
-except:
-    from .neural_network import NeuralNetwork
-    from .song import Song
+from classes.neural_network import NeuralNetwork
+from classes.song import Song
 
 
 
@@ -156,17 +152,17 @@ class Trainer():
 
     # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
     # specifically the parts for getting each value from the h5 file
-    def get_data(self):
+    def get_track_data(dataset_path):
         # Check path provided is valid
-        if not os.path.isdir(self.dataset_path):
-            raise FileNotFoundError(f"Error: could not find directory {self.dataset_path}")
+        if not os.path.isdir(dataset_path):
+            raise FileNotFoundError(f"Error: could not find directory {dataset_path}")
 
         # Get data
-        if len(os.listdir(self.dataset_path)) == 0:
-            raise FileNotFoundError(f"Error: could not find dataset --- {self.dataset_path} is empty")
+        if len(os.listdir(dataset_path)) == 0:
+            raise FileNotFoundError(f"Error: could not find dataset --- {dataset_path} is empty")
         # Iterate through directory provided
-        for path_dir_1 in sorted(os.listdir(self.dataset_path)):
-            dir_path_1 = os.path.join(self.dataset_path, path_dir_1)
+        for path_dir_1 in sorted(os.listdir(dataset_path)):
+            dir_path_1 = os.path.join(dataset_path, path_dir_1)
             if len(os.listdir(dir_path_1)) == 0:
                 raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
             # Iterate through subdirectories
@@ -184,9 +180,10 @@ class Trainer():
                             # Get values for dataset
                             num_songs = h5.root.metadata.songs.nrows
                             for i in range(num_songs):
+                                song_id = str(h5.root.metadata.songs.cols.song_id[i])[2:-1]
                                 song_name = str(h5.root.metadata.songs.cols.title[i])[2:-1]
                                 artist_name = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1]
-                                year = h5.root.musicbrainz.songs.cols.year[i]
+                                # year = h5.root.musicbrainz.songs.cols.year[i]
                                 key = h5.root.analysis.songs.cols.key[i]
                                 mode = h5.root.analysis.songs.cols.mode[i]
                                 bpm = h5.root.analysis.songs.cols.tempo[i]
@@ -204,23 +201,22 @@ class Trainer():
                                 valence = h5.root.analysis.songs.cols.valence[i]
                                 instrumentalness = h5.root.analysis.songs.cols.instrumentalness[i]
 
-                                # Write to CSV if corresponding entry is found in Spotify Tracks Dataset
+                                # return Song object with all of the data
                                 song = Song(
+                                    song_id=song_id,
                                     song_name=song_name,
                                     artist_name=artist_name,
-                                    release_year=year,
-                                    danceability=danceability,
-                                    energy=energy,
-                                    loudness=loudness,
                                     key=key,
                                     mode=mode,
                                     tempo=bpm,
+                                    danceability=danceability,
+                                    energy=energy,
+                                    loudness=loudness,
+                                    instrumentalness=instrumentalness,
+                                    valence=valence,
                                     time_signature=time_signature,
                                     timbre_values=mfcc_values,
-                                    valence=valence,
-                                    instrumentalness=instrumentalness
                                 )
-
                                 yield song
 
     def normalize_song(self, song: Song):
@@ -385,10 +381,14 @@ class Trainer():
 
             print()
 
+        # save last network
         self.training_network.save_network(os.path.join(self.output_folder, "last.pkl"))
 
+        # get total training time
         train_end_time = time.time() - train_start_time
         print(f"Training completed in {train_end_time / 3600} hours")
+        
+        print("Displaying stats graphs...")
             
         # get epoch numbers for plotting purposes
         epoch_nums = range(len(train_stats))
@@ -424,6 +424,8 @@ class Trainer():
         plt.ylabel("Validation Time (seconds)")
         plt.title("Validation Time Elapsed per Epoch")
         plt.show()
+
+        print("Writing stats to CSV...")
 
         # write train stats to a csv file
         with open(os.path.join(self.output_folder, 'train_stats.csv'), 'w') as f:
