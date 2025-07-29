@@ -1,5 +1,12 @@
 import requests
 
+# SONG IDS:
+# SOAAFAC12A67ADF7EB
+# SOAAFRX12A8C131D05
+# SOAAGJU12AB018C6E2
+# SOAALFT12A8C134574
+# SOAALHB12A8C13F5F3
+
 # TEST TRACK UPLOAD
 # data = {
 #     'track_id': "def456ghi789",
@@ -31,14 +38,14 @@ print("Status Code:", response.status_code)
 print("Response Body:", response.text)
 
 # TEST GET BASIC TRACK INFO
-track_id = 'abc123def456'
+track_id = 'SOAAFAC12A67ADF7EB'
 url = f"http://localhost:8000/get-basic-track-info/{track_id}"
 response = requests.get(url)
 print("Status Code:", response.status_code)
 print("Response Body:", response.text)
 
 # TEST GET DETAILED TRACK INFO
-track_id = 'abc123def456'
+track_id = 'SOAAFAC12A67ADF7EB'
 url = f"http://localhost:8000/get-detailed-track-info/{track_id}"
 response = requests.get(url)
 print("Status Code:", response.status_code)

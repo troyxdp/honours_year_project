@@ -465,16 +465,16 @@ if __name__ == '__main__':
     generate_dummy_network = input("Would you like to generate a dummy neural network to use for API testing? (y/n) ")
     if generate_dummy_network.lower() == 'y':
         nn = NeuralNetwork(
-            input_size=209,
-            output_size=209
+            input_size=202,
+            output_size=202
         )
         # Layer 1
-        layer_1_weights = np.random.rand(196, 209)
+        layer_1_weights = np.random.rand(196, 202)
         layer_1_biases = np.random.rand(196)
         layer_1 = FeedForwardLayer(layer_1_weights, layer_1_biases, NeuralNetwork.relu)
         # Layer 2
         layer_2_weights = np.random.rand(128, 196)
-        layer_2_biases = np.random.rand(160)
+        layer_2_biases = np.random.rand(128)
         layer_2 = FeedForwardLayer(layer_2_weights, layer_2_biases, NeuralNetwork.relu)
         # Add all layer to network
         nn.append_layer(layer_1)

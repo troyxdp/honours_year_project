@@ -33,12 +33,12 @@ if __name__ == '__main__':
             cursor.execute(
                 '''
                 INSERT
-                    INTO track(track_id, song_name, artist_name, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, timbre_values, embedding, audio_file_path)
+                    INTO track(track_id, song_name, artist_name, release_year, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, timbre_values, embedding, audio_file_path)
                 VALUES
-                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                    (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 ''',
                 (
-                    track.song_id, track.song_name, track.artists, float(track.danceability), float(track.energy), 
+                    track.song_id, track.song_name, track.artists, np.random.randint(1900, 2025), float(track.danceability), float(track.energy), 
                     float(track.loudness), float(track.valence), float(track.instrumentalness), int(track.key), int(track.mode), 
                     float(track.tempo), int(track.time_signature), track.timbre_values.tolist(), np.random.rand(128).tolist(), f"{i}.mp3"
                 )

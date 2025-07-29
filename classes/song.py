@@ -11,7 +11,7 @@ class Song():
         self,
         song_name: str,
         artist_name: str,
-        # release_year: int,
+        release_year: int,
         # genre: list,
         key: int,
         mode: int,
@@ -31,7 +31,7 @@ class Song():
         self.song_id = song_id
         self.song_name = song_name
         self.artists = artist_name
-        # self.release_year = release_year
+        self.release_year = release_year
 
         # Spotify Attribuutes
         self.danceability = danceability

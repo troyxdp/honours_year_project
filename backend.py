@@ -15,7 +15,7 @@ import numpy as np
 
 # Code I wrote
 from classes.recommender import Recommender
-from classes.neural_network import NeuralNetwork
+from classes.neural_network import NeuralNetwork, FeedForwardLayer
 from classes.song import Song
 
 # TODO: add better logging
@@ -243,16 +243,25 @@ def get_tracks_basic_info(start_position: int, end_position: int, sort_field: st
     to_ret = []
     for record in records:
         try:
+            track_id = record[0]
+            song_name = record[1]
+            artist_name = record[2]
+            release_year = int(record[3])
+            key = int(record[4])
+            mode = int(record[5])
+            bpm = float(record[6])
+            time_signature = int(record[7])
+            genre = record[8] if record[8] else ''
             record_dict = {
-                "track_id": record[0],
-                "song_name": record[1],
-                "artist_name": record[2],
-                "release_year": int(record[3]),
-                "key": int(record[4]),
-                "mode": int(record[5]),
-                "bpm": float(record[6]),
-                "time_signature": int(record[7]),
-                "genre": record[8]
+                "track_id": track_id,
+                "song_name": song_name,
+                "artist_name": artist_name,
+                "release_year": release_year,
+                "key": key,
+                "mode": mode,
+                "bpm": bpm,
+                "time_signature": time_signature,
+                "genre": genre
             }
             to_ret.append(record_dict)
         except TypeError as te:
@@ -292,22 +301,36 @@ def get_detailed_track_info(track_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find song with given track ID")
     
     # Return JSON object with all the data
+    track_id = record[0]
+    song_name = record[1]
+    artist_name = record[2]
+    release_year = int(record[3])
+    danceability = float(record[4])
+    loudness = float(record[5])
+    key = int(record[6])
+    mode = int(record[7])
+    bpm = float(record[8])
+    time_signature = int(record[9])
+    energy = float(record[10])
+    valence = float(record[11])
+    instrumentalness = float(record[12])
+    genre = record[13] if record[13] else ''
     return JSONResponse(
         {
-            'track_id': record[0], 
-            'song_name': record[1], 
-            'artist_name': record[2], 
-            'release_year': record[3], 
-            'danceability': record[4], 
-            'loudness': record[4], 
-            'key': record[5], 
-            'mode': record[6], 
-            'bpm': record[7], 
-            'time_signature': record[8], 
-            'energy': record[9], 
-            'valence': record[10], 
-            'instrumentalness': record[11], 
-            'genre': record[12]
+            'track_id': track_id, 
+            'song_name': song_name, 
+            'artist_name': artist_name, 
+            'release_year': release_year, 
+            'danceability': danceability, 
+            'loudness': loudness, 
+            'key': key, 
+            'mode': mode, 
+            'bpm': bpm, 
+            'time_signature': time_signature, 
+            'energy': energy, 
+            'valence': valence, 
+            'instrumentalness': instrumentalness, 
+            'genre': genre
         }
     )
 
@@ -337,17 +360,26 @@ def get_basic_track_info(track_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find song with given track ID")
     
     # Return JSON object with all the data
+    track_id = record[0]
+    song_name = record[1]
+    artist_name = record[2]
+    release_year = int(record[3])
+    key = int(record[4])
+    mode = int(record[5])
+    bpm = float(record[6])
+    time_signature = int(record[7])
+    genre = record[8] if record[8] else ''
     return JSONResponse(
         {
-            'track_id': record[0], 
-            'song_name': record[1], 
-            'artist_name': record[2], 
-            'release_year': record[3], 
-            'key': record[4], 
-            'mode': record[5], 
-            'bpm': record[6], 
-            'time_signature': record[7], 
-            'genre': record[8]
+            "track_id": track_id,
+            "song_name": song_name,
+            "artist_name": artist_name,
+            "release_year": release_year,
+            "key": key,
+            "mode": mode,
+            "bpm": bpm,
+            "time_signature": time_signature,
+            "genre": genre
         }
     )
 
