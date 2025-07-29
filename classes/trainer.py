@@ -1,6 +1,7 @@
 import os
 import time
 import math
+import csv
 
 import numpy as np
 import pandas as pd
@@ -44,8 +45,6 @@ class EpochStatistics():
         return self._recall
 
 class Trainer():
-
-    dataset_yield_size = 1000
 
     def __init__(
         self,
@@ -106,6 +105,8 @@ class Trainer():
                         file_paths.append(os.path.join(dir_path_3, file_name))
         return file_paths
     
+    # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
+    # specifically the parts for getting each value from the h5 file
     def get_song_data_from_file(self, file_path):
         # Check if file exists. If not, raise exception
         if not os.path.exists(file_path):
@@ -257,11 +258,11 @@ class Trainer():
 
     def is_missing_values(self, song: Song):
         # Check if missing year
-        if song.release_year == 0:
-            return True
+        # if song.release_year == 0:
+        #     return True
         # Check if missing genre
-        if song.genre == '':
-            return True
+        # if song.genre == '':
+        #     return True
         # Check if missing energy
         if song.energy == 0:
             return True
@@ -278,7 +279,7 @@ class Trainer():
         return False
 
     def set_training_network(self, nn: NeuralNetwork):
-        pass
+        self.training_network = nn
 
     def train_model(self):
         # get file paths for dataset as well as number of training, validation, and testing items
@@ -322,7 +323,7 @@ class Trainer():
 
                 # backpropogate
                 error_prime = np.subtract(output_value, input_value)
-                self.training_network.back_propogate(lr=lr, error_prime=error_prime)
+                self.training_network.back_propogate(lr=lr, error_prime=error_prime, momentum=self.momentum)
 
                 num_train_samples += 1
             
@@ -390,7 +391,7 @@ class Trainer():
         print(f"Training completed in {train_end_time / 3600} hours")
             
         # get epoch numbers for plotting purposes
-        epoch_nums = range(self.num_epochs)
+        epoch_nums = range(len(train_stats))
 
         # plot training loss per epoch
         train_loss_values = [epoch_stat.get_loss() for epoch_stat in train_stats]
@@ -424,6 +425,20 @@ class Trainer():
         plt.title("Validation Time Elapsed per Epoch")
         plt.show()
 
+        # write train stats to a csv file
+        with open(os.path.join(self.output_folder, 'train_stats.csv'), 'w') as f:
+            writer = csv.writer(f, delimiter=',', quotechar='|')
+            writer.writerow(['epoch_number', 'loss', 'epoch_time'])
+            for i, train_stat in enumerate(train_stats):
+                writer.writerow([i+1, train_stat.get_loss(), train_stat.get_epoch_time()])
+
+        # write val stats to a csv file
+        with open(os.path.join(self.output_folder, 'val_stats.csv'), 'w') as f:
+            writer = csv.writer(f, delimiter=',', quotechar='|')
+            writer.writerow(['epoch_number', 'loss', 'epoch_time'])
+            for i, val_stat in enumerate(val_stats):
+                writer.writerow([i+1, val_stat.get_loss(), val_stat.get_epoch_time()])
+
     def set_hyperparameters(
         self,
         initial_lr: float,
@@ -454,9 +469,6 @@ class Trainer():
         self.momentum = momentum
         self.reg_const = reg_const
         self.dropout = dropout
-
-    def get_curr_training_statistics(self):
-        return self.model_statistics_per_epoch
 
     # adapted from https://medium.com/@piyushkashyap045/mastering-weight-initialization-in-neural-networks-a-beginners-guide-6066403140e9
     def get_he_initialization(n_inputs, n_outputs):
