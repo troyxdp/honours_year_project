@@ -29,8 +29,8 @@ import requests
 # print("Response Body:", response.text)
 
 # TEST GET TRACKS INFO
-start_position = 0
-end_position = 15
+start_position = 15
+end_position = 30
 sort_field = 'song_name'
 url = f"http://localhost:8000/get-tracks-basic-info/start-position/{start_position}/end-position/{end_position}/sort-field/{sort_field}"
 response = requests.get(url)

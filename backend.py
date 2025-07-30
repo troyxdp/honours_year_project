@@ -58,6 +58,10 @@ app.add_middleware(CORSMiddleware,
 # API GET endpoints
 @app.get('/get-next-recommendation/{current_track_id}') # TODO: test new Recommender
 def get_next_recommendation(current_track_id):
+    # check that a non-null value was passed to endpoint
+    if current_track_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track ID for current track playing was provided")
+    
     # check if current_track_id exists in database
     cursor = conn.cursor()
     try:
@@ -82,12 +86,8 @@ def get_next_recommendation(current_track_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find current track playing in database")
     
     # check that the seed track has been provided
-    if recommender.is_current_track_id_set():
+    if not recommender.is_current_track_id_set():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
-    
-    # check that a non-null value was passed to endpoint
-    if current_track_id is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track ID for current track playing was provided")
     
     # get track ID of next recommendation (if any)
     recommended_track_id = recommender.get_next_recommendation(current_track_id)
@@ -121,17 +121,26 @@ def get_next_recommendation(current_track_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find song with given track ID")
     
     # Return JSON object with all the data
+    track_id = record[0]
+    song_name = record[1]
+    artist_name = record[2]
+    release_year = int(record[3])
+    key = int(record[4])
+    mode = int(record[5])
+    bpm = float(record[6])
+    time_signature = int(record[7])
+    genre = record[8] if record[8] else ''
     return JSONResponse(
         {
-            'track_id': record[0], 
-            'song_name': record[1], 
-            'artist_name': record[2], 
-            'release_year': record[3], 
-            'key': record[4], 
-            'mode': record[5], 
-            'bpm': record[6], 
-            'time_signature': record[7], 
-            'genre': record[8]
+            "track_id": track_id,
+            "song_name": song_name,
+            "artist_name": artist_name,
+            "release_year": release_year,
+            "key": key,
+            "mode": mode,
+            "bpm": bpm,
+            "time_signature": time_signature,
+            "genre": genre
         }
     )
 
@@ -141,7 +150,7 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
         print("YAY SEWCH KWEWY!!! Still got impwement tho")
 
     # response if there are no unplayed tracks
-    if recommender.is_unplayed_tracks():
+    if not recommender.is_unplayed_tracks():
         return JSONResponse({
             "songs": None,
             "start_position": 0,
@@ -164,7 +173,7 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
             OFFSET %s
             LIMIT %s;
             ''',
-            (recommender.get_unplayed_tracks(), start_position, end_position - start_position)
+            (tuple(recommender.get_unplayed_tracks()), start_position, end_position - start_position)
         )
         records = cursor.fetchall()
     except Exception as e:
@@ -175,16 +184,25 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
     to_ret = []
     for record in records:
         try:
+            track_id = record[0]
+            song_name = record[1]
+            artist_name = record[2]
+            release_year = int(record[3])
+            key = int(record[4])
+            mode = int(record[5])
+            bpm = float(record[6])
+            time_signature = int(record[7])
+            genre = record[8] if record[8] else ''
             record_dict = {
-                "track_id": record[0],
-                "song_name": record[1],
-                "artist_name": record[2],
-                "release_year": int(record[3]),
-                "key": int(record[4]),
-                "mode": int(record[5]),
-                "bpm": float(record[6]),
-                "time_signature": int(record[7]),
-                "genre": record[8]
+                "track_id": track_id,
+                "song_name": song_name,
+                "artist_name": artist_name,
+                "release_year": release_year,
+                "key": key,
+                "mode": mode,
+                "bpm": bpm,
+                "time_signature": time_signature,
+                "genre": genre
             }
             to_ret.append(record_dict)
         except TypeError as te:
@@ -199,7 +217,7 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
         }
     )
 
-@app.get('/get-tracks-basic-info/start-position/{start_position}/end-position/{end_position}/sort-field/{sort_field}') # TODO: debug
+@app.get('/get-tracks-basic-info/start-position/{start_position}/end-position/{end_position}/sort-field/{sort_field}') # TODO: implement search query
 def get_tracks_basic_info(start_position: int, end_position: int, sort_field: str, search_query: str | None = None):
     if search_query:
         print("YAY SEWCH KWEWY!!! Still got impwement tho")
@@ -275,7 +293,7 @@ def get_tracks_basic_info(start_position: int, end_position: int, sort_field: st
         }
     )
 
-@app.get('/get-detailed-track-info/{track_id}') # TODO: debug
+@app.get('/get-detailed-track-info/{track_id}') # TODO: test
 def get_detailed_track_info(track_id):
     # Check if song exists
     cursor = conn.cursor()
@@ -334,7 +352,89 @@ def get_detailed_track_info(track_id):
         }
     )
 
-@app.get('/get-basic-track-info/{track_id}') # TODO: test
+@app.get('/get-unselected-tracks-basic-info/start-position/{start_position}/end-position/{end_position}/sort-field/{sort_field}')
+def get_unselected_tracks(start_position: int, end_position: int, sort_field: str, search_query: str | None = None):
+    if search_query:
+        print("YAY SEWCH KWEWY!!! Still got impwement tho")
+    # Get start/end position values as integers
+    try:
+        start_position = int(start_position)
+        end_position = int(end_position)
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: please provide integer start/end position values")
+    
+    # Check if start/end parameters provided were valid
+    if start_position < 0 or end_position < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: please provide positive start/end position values")
+    if start_position >= end_position:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: please provide a start position value lower than the end position value")
+    
+    # Check sort field is valid
+    if not sort_field in ('track_id', 'song_name', 'artist_name', 'release_year', 'key', 'mode', 'bpm', 'time_signature', 'genre'):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: invalid sort field provided")
+    
+    # List of selected tracks
+    selected_track_ids = recommender.get_selected_track_ids()
+    selected_track_ids.append(recommender.get_seed_track_id())
+    
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            f"""
+            SELECT
+                track_id, song_name, artist_name, release_year, key, mode, bpm, time_signature, genre
+            FROM
+                track
+            WHERE
+                track_id NOT IN %s
+            ORDER BY {sort_field}
+            OFFSET %s
+            LIMIT %s;
+            """,
+            (tuple(selected_track_ids), start_position, end_position - start_position)
+        )
+        records = cursor.fetchall()
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not retrieve tracks from database")
+    
+    to_ret = []
+    for record in records:
+        try:
+            track_id = record[0]
+            song_name = record[1]
+            artist_name = record[2]
+            release_year = int(record[3])
+            key = int(record[4])
+            mode = int(record[5])
+            bpm = float(record[6])
+            time_signature = int(record[7])
+            genre = record[8] if record[8] else ''
+            record_dict = {
+                "track_id": track_id,
+                "song_name": song_name,
+                "artist_name": artist_name,
+                "release_year": release_year,
+                "key": key,
+                "mode": mode,
+                "bpm": bpm,
+                "time_signature": time_signature,
+                "genre": genre
+            }
+            to_ret.append(record_dict)
+        except TypeError as te:
+            print(te)
+
+    return JSONResponse(
+        {
+            "songs": to_ret,
+            "start_position": start_position,
+            "end_position": end_position
+        }
+    )
+
+@app.get('/get-basic-track-info/{track_id}')
 def get_basic_track_info(track_id):
     # Check if song exists
     cursor = conn.cursor()
@@ -383,7 +483,7 @@ def get_basic_track_info(track_id):
         }
     )
 
-@app.get('/end-set') # TODO: test
+@app.get('/end-set')
 def end_set():
     recommender.reset_recommender()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -504,7 +604,7 @@ def upload_track(track: Track = Depends(), files: List[UploadFile] = File(...)):
 
 class SetTrackIDs(BaseModel):
     track_ids: List[str]
-@app.post('/select-set-tracks') # TODO: test new Recommender
+@app.post('/select-set-tracks')
 def select_set_tracks(tracks: SetTrackIDs):
     # check that the parameters provided are valid
     track_ids = tracks.track_ids
@@ -516,7 +616,7 @@ def select_set_tracks(tracks: SetTrackIDs):
                 return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
             
     # check that the seed track has been provided
-    if recommender.is_current_track_id_set():
+    if not recommender.is_current_track_id_set():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
     
     # check that at least one of the non-seed track IDs provided are in the database
@@ -530,7 +630,7 @@ def select_set_tracks(tracks: SetTrackIDs):
                 track
             WHERE
                 track_id IN %s;
-            ''', (track_ids.tolist(),))
+            ''', (tuple(track_ids),))
         records = cursor.fetchall()
     except Exception as e:
        print(e)
@@ -549,6 +649,7 @@ def select_set_tracks(tracks: SetTrackIDs):
     selected_track_ids = [record[0] for record in records]
     try:
         recommender.init_selected_track_ids(selected_track_ids)
+        recommender.init_recommendations()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: cannot select tracks for a set before setting seed track")
@@ -559,7 +660,7 @@ def select_set_tracks(tracks: SetTrackIDs):
 
 class SeedTrackID(BaseModel):
     track_id: str
-@app.post('/select-seed-track') # TODO: test new Recommender
+@app.post('/select-seed-track')
 def select_seed_track(track: SeedTrackID):
     if track is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no data provided")
@@ -673,9 +774,51 @@ def edit_track(tracks: EditTracks):
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 @app.put('/add-set-tracks')
-def add_set_tracks(tracks: SetTrackIDs): # TODO
-    ... 
-
+def add_set_tracks(tracks: SetTrackIDs):
+    # check that the parameters provided are valid
+    track_ids = tracks.track_ids
+    if len(track_ids) == 0:
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track IDs were provided")
+    if len(track_ids) == 1:
+        if recommender.is_current_track_id_set(): # check if seed track is set
+            if track_ids[0] == recommender.get_current_track_id(): # check if provided track is the seed track
+                return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
+            
+    # check that the seed track has been provided
+    if not recommender.is_current_track_id_set():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
+    
+    # check that at least one of the non-seed track IDs provided are in the database
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''
+            SELECT
+                *
+            FROM
+                track
+            WHERE
+                track_id IN %s;
+            ''', (tuple(track_ids),))
+        records = cursor.fetchall()
+    except Exception as e:
+       print(e)
+       raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database for track IDs")
+    
+    # check if any records were returned
+    if len(records) == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: no tracks were found in the database with the provided track IDs")
+    
+    # if one or more non-seed track values were found, add them to the unplayed_tracks and recommended_tracks lists
+    selected_track_ids = [record[0] for record in records]
+    try:
+        recommender.add_to_selected_track_ids(selected_track_ids)
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: cannot select tracks for a set before setting seed track")
+    
+    # return success response
+    return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
 # API DELETE endpoints

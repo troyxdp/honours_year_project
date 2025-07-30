@@ -13,6 +13,7 @@ class Recommender():
         self._is_selected_track_ids_set = False
         self._current_track_id = '' # track ID of the current song that is playing
         self._is_current_track_id_set = False
+        self._seed_track_id = ''
         self._played_tracks = [] # list of tracks that have been played in the set
         self._recommendations = [] # planned ordered list of tracks to play in the set. They are also all of the unplanned tracks
 
@@ -62,6 +63,7 @@ class Recommender():
         
         # set values
         self._current_track_id = seed_track_id
+        self._seed_track_id = seed_track_id
         self._is_current_track_id_set = True
 
     def reset_recommender(self):
@@ -87,6 +89,9 @@ class Recommender():
     def is_current_track_id_set(self):
         return self._is_current_track_id_set
     
+    def get_seed_track_id(self):
+        return self._seed_track_id
+
     def get_played_tracks(self):
         return self._played_tracks
     
@@ -106,29 +111,34 @@ class Recommender():
     def get_next_recommendation(self, curr_track_id):
         # update currently playing track data and list of played tracks
         self._current_track_id = curr_track_id 
-        self._played_tracks.append(curr_track_id)
 
+        # TODO: restructure this logic - sure there is a better way to do it
         # return next recommendation
-        if curr_track_id == self._recommendations[0]: # user played recommended track
-            if len(self._recommendations) > 1: # check that there is something left to recommend
+        if len(self._recommendations) > 1: # user played recommended track
+            if curr_track_id == self._recommendations[0]: # check that there is something left to recommend
                 # remove track from recommendations
                 self._recommendations.pop(0)
 
-                # return next recommended track, which is the first track in the recommendations list
-                return self._recommendations[0]
-        elif len(self._recommendations) > 1: # user did not play recommended track
-            # remove track from recommendations
-            for i in range(len(self._recommendations)):
-                if self._recommendations[i] == curr_track_id:
-                    self._recommendations.pop(i)
+                # add to array of played tracks
+                self._played_tracks.append(curr_track_id)
+            else: # did not play the recommended track
+                # remove track from recommendations
+                is_in_recommendations = False # boolean flag to see if curr_track_id is in recommendations list, i.e. is being played currently
+                for i in range(len(self._recommendations)):
+                    if self._recommendations[i] == curr_track_id:
+                        is_in_recommendations = True
+                        self._recommendations.pop(i)
+                        break
+                
+                if is_in_recommendations:    
+                    # regenerate recommendations
+                    self._regenerate_recommendations(curr_track_id) # this is also called to make the first recommendation
+                    
+                    # add to array of played tracks
+                    self._played_tracks.append(curr_track_id)
 
-            # regenerate recommendations and return recommended track
-            self._regenerate_recommendations(curr_track_id)
-            return self._recommendations[0]
-        
-        # nothing to recommend, so return None
-        return None
-    
+        # return recommended track
+        return self._recommendations[0] # if there is nothing else left to recommend or if track not updated, make same recommendation
     
     # FUNCTIONALITY METHODS
     # this method is called to generate new recommendations 
@@ -139,5 +149,5 @@ class Recommender():
     # method to initialize recommendations
     def init_recommendations(self): # TODO
         # TODO: implement TSP algorithm here - for now it is just a random shuffle
-        return random.shuffle(self._selected_track_ids.copy())
+        self._recommendations = self._selected_track_ids.copy()
     

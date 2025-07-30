@@ -469,12 +469,12 @@ if __name__ == '__main__':
             output_size=202
         )
         # Layer 1
-        layer_1_weights = np.random.rand(196, 202)
-        layer_1_biases = np.random.rand(196)
+        layer_1_weights = np.random.rand(128, 202)
+        layer_1_biases = np.random.rand(128)
         layer_1 = FeedForwardLayer(layer_1_weights, layer_1_biases, NeuralNetwork.relu)
         # Layer 2
-        layer_2_weights = np.random.rand(128, 196)
-        layer_2_biases = np.random.rand(128)
+        layer_2_weights = np.random.rand(64, 128)
+        layer_2_biases = np.random.rand(64)
         layer_2 = FeedForwardLayer(layer_2_weights, layer_2_biases, NeuralNetwork.relu)
         # Add all layer to network
         nn.append_layer(layer_1)
