@@ -1,7 +1,7 @@
 # Default libraries
 import os
 from typing import List
-import random
+import json
 
 # External libraries
 import psycopg2
@@ -68,7 +68,7 @@ def get_next_recommendation(current_track_id):
         cursor.execute(
             '''
             SELECT
-                track_id
+                track_id, embedding
             FROM
                 track
             WHERE
@@ -86,11 +86,11 @@ def get_next_recommendation(current_track_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find current track playing in database")
     
     # check that the seed track has been provided
-    if not recommender.is_current_track_id_set():
+    if not recommender.is_current_track_info_set():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
     
     # get track ID of next recommendation (if any)
-    recommended_track_id = recommender.get_next_recommendation(current_track_id)
+    recommended_track_id = recommender.get_next_recommendation_track_id((record[0], json.loads(record[1])))
     if not recommended_track_id:
         return JSONResponse({
             "song": None
@@ -159,6 +159,7 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
     
     # run SQL query to get all the info about the unplayed tracks
     cursor = conn.cursor()
+    unplayed_track_ids = tuple(recommender.get_unplayed_track_ids())
     try:
         cursor.execute(
             f'''
@@ -173,7 +174,7 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
             OFFSET %s
             LIMIT %s;
             ''',
-            (tuple(recommender.get_unplayed_tracks()), start_position, end_position - start_position)
+            (unplayed_track_ids, start_position, end_position - start_position)
         )
         records = cursor.fetchall()
     except Exception as e:
@@ -606,26 +607,25 @@ class SetTrackIDs(BaseModel):
     track_ids: List[str]
 @app.post('/select-set-tracks')
 def select_set_tracks(tracks: SetTrackIDs):
+    # check that the seed track has been provided
+    if not recommender.is_current_track_info_set():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
+    
     # check that the parameters provided are valid
     track_ids = tracks.track_ids
     if len(track_ids) == 0:
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track IDs were provided")
     if len(track_ids) == 1:
-        if recommender.is_current_track_id_set(): # check if seed track is set
-            if track_ids[0] == recommender.get_current_track_id(): # check if provided track is the seed track
-                return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
+        if track_ids[0] == recommender.get_current_track_id(): # check if provided track is the seed track
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
             
-    # check that the seed track has been provided
-    if not recommender.is_current_track_id_set():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
-    
     # check that at least one of the non-seed track IDs provided are in the database
     cursor = conn.cursor()
     try:
         cursor.execute(
             '''
             SELECT
-                *
+                track_id, embedding
             FROM
                 track
             WHERE
@@ -646,9 +646,9 @@ def select_set_tracks(tracks: SetTrackIDs):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only duplicate of seed track found in provided values")
             
     # if one or more non-seed track values were found, add them to the unplayed_tracks and recommended_tracks lists
-    selected_track_ids = [record[0] for record in records]
+    selected_tracks_info = [(record[0], json.loads(record[1])) for record in records]
     try:
-        recommender.init_selected_track_ids(selected_track_ids)
+        recommender.init_selected_track_ids(selected_tracks_info)
         recommender.init_recommendations()
     except Exception as e:
         print(e)
@@ -673,7 +673,7 @@ def select_seed_track(track: SeedTrackID):
         cursor.execute(
             '''
             SELECT
-                *
+                track_id, embedding
             FROM 
                 track
             WHERE
@@ -691,7 +691,7 @@ def select_seed_track(track: SeedTrackID):
     
     # Set seed track value
     try:
-        recommender.set_seed_track_id(track.track_id)
+        recommender.set_seed_track_info((record[0], json.loads(record[1])))
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.__str__())
     # return success response
@@ -775,26 +775,25 @@ def edit_track(tracks: EditTracks):
 
 @app.put('/add-set-tracks')
 def add_set_tracks(tracks: SetTrackIDs):
+    # check that the seed track has been provided
+    if not recommender.is_current_track_info_set():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
+    
     # check that the parameters provided are valid
     track_ids = tracks.track_ids
     if len(track_ids) == 0:
         return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track IDs were provided")
     if len(track_ids) == 1:
-        if recommender.is_current_track_id_set(): # check if seed track is set
-            if track_ids[0] == recommender.get_current_track_id(): # check if provided track is the seed track
-                return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
+        if track_ids[0] == recommender.get_current_track_id(): # check if provided track is the seed track
+            return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
             
-    # check that the seed track has been provided
-    if not recommender.is_current_track_id_set():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
-    
     # check that at least one of the non-seed track IDs provided are in the database
     cursor = conn.cursor()
     try:
         cursor.execute(
             '''
             SELECT
-                *
+                track_id, embedding
             FROM
                 track
             WHERE
@@ -810,9 +809,9 @@ def add_set_tracks(tracks: SetTrackIDs):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: no tracks were found in the database with the provided track IDs")
     
     # if one or more non-seed track values were found, add them to the unplayed_tracks and recommended_tracks lists
-    selected_track_ids = [record[0] for record in records]
+    selected_tracks_info = [(record[0], json.loads(record[1])) for record in records]
     try:
-        recommender.add_to_selected_track_ids(selected_track_ids)
+        recommender.add_to_selected_track_ids(selected_tracks_info)
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: cannot select tracks for a set before setting seed track")
@@ -865,9 +864,9 @@ def delete_track(track_id):
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not delete track from database")
     
-    # Delete song file
-    if not record[1] is None:
-        os.remove(record[1])
+    # Delete song file ---- commented out for now. Need to implement functionality. May even not allow saving of uploaded mp3 files
+    # if not record[1] is None:
+    #     os.remove(record[1])
         
     # Return success response
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -464,6 +464,7 @@ if __name__ == '__main__':
     # GENERATE A DUMMY NEURAL NETWORK TO USE FOR API TEMPORARILY
     generate_dummy_network = input("Would you like to generate a dummy neural network to use for API testing? (y/n) ")
     if generate_dummy_network.lower() == 'y':
+        # generate dummy neural network that outputs 64 dimensional embedding
         nn = NeuralNetwork(
             input_size=202,
             output_size=202
