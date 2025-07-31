@@ -618,7 +618,7 @@ def upload_track(
     except:
         conn.close()
     
-    # Save file to storage
+    # Save file to storage --- not doing for now
     audio_file_path = "piggy.mp3"
     # if len(files) > 0:
     #     audio_file_path = f'./tracks/{track_id}.{os.path.splitext(files[0].filename)[1]}'
@@ -631,14 +631,15 @@ def upload_track(
         cursor.execute(
             '''
             INSERT
-                INTO track(track_id, song_name, artist_name, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, timbre_values, embedding, audio_file_path)
+                INTO track(track_id, song_name, artist_name, release_year, genre, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, timbre_values, embedding, audio_file_path)
             VALUES
-                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
             ''',
             (
-                track_id, song_name, artist_name, danceability, energy, 
-                loudness, valence, instrumentalness, key, mode, 
-                bpm, time_signature, timbre_values.tolist(), embedding.tolist(), audio_file_path
+                track_id, song_name, artist_name, release_year, genre, 
+                danceability, energy, loudness, valence, instrumentalness, 
+                key, mode, bpm, time_signature, timbre_values.tolist(), 
+                embedding.tolist(), audio_file_path
             )
         )
         conn.commit()
