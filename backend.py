@@ -31,15 +31,6 @@ DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
 NEURAL_NETWORK_PATH = os.getenv('NEURAL_NETWORK_PATH')
 
-# Create connection to database
-conn = psycopg2.connect(
-    database=DB,
-    user=DB_USER,
-    password=DB_PASSWORD,
-    host=DB_HOST,
-    port=DB_PORT
-)
-
 # Load embedding neural network
 embedder = NeuralNetwork.load_network(file_path=NEURAL_NETWORK_PATH)
 
@@ -63,6 +54,7 @@ def get_next_recommendation(current_track_id):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track ID for current track playing was provided")
     
     # check if current_track_id exists in database
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -80,6 +72,8 @@ def get_next_recommendation(current_track_id):
         cursor.close()
     except Exception as e:
         print(e)
+        cursor.close()
+        conn.close()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to see if current track is in database")
 
     # check if a record was found
@@ -116,6 +110,9 @@ def get_next_recommendation(current_track_id):
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to find recommended track")
+    finally:
+        cursor.close()
+        conn.close()
     
     # Check if record is None - if so, then song does not exist in database
     if record is None:
@@ -159,6 +156,7 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
         })
     
     # run SQL query to get all the info about the unplayed tracks
+    conn = get_conn()
     cursor = conn.cursor()
     unplayed_track_ids = tuple(recommender.get_unplayed_track_ids())
     try:
@@ -178,10 +176,12 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
             (unplayed_track_ids, start_position, end_position - start_position)
         )
         records = cursor.fetchall()
-        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to get unplayed tracks")
+    finally:
+        cursor.close()
+        conn.close()
     
     # create dicts array using retrieved data
     to_ret = []
@@ -242,6 +242,7 @@ def get_tracks_basic_info(start_position: int, end_position: int, sort_field: st
     if not sort_field in ('track_id', 'song_name', 'artist_name', 'release_year', 'key', 'mode', 'bpm', 'time_signature', 'genre'):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: invalid sort field provided")
     
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -257,10 +258,12 @@ def get_tracks_basic_info(start_position: int, end_position: int, sort_field: st
             (start_position, end_position - start_position)
         )
         records = cursor.fetchall()
-        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not retrieve tracks from database")
+    finally:
+        cursor.close()
+        conn.close()
     
     to_ret = []
     for record in records:
@@ -300,6 +303,7 @@ def get_tracks_basic_info(start_position: int, end_position: int, sort_field: st
 @app.get('/get-detailed-track-info/{track_id}') # TODO: test
 def get_detailed_track_info(track_id):
     # Check if song exists
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -314,10 +318,12 @@ def get_detailed_track_info(track_id):
             (track_id,)
         )
         record = cursor.fetchone()
-        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to find track with given track ID")
+    finally:
+        cursor.close()
+        conn.close()
     
     # Check if record is None - if so, then song does not exist in database
     if record is None:
@@ -383,6 +389,7 @@ def get_unselected_tracks(start_position: int, end_position: int, sort_field: st
     selected_track_ids = recommender.get_selected_track_ids()
     selected_track_ids.append(recommender.get_seed_track_id())
     
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -400,10 +407,12 @@ def get_unselected_tracks(start_position: int, end_position: int, sort_field: st
             (tuple(selected_track_ids), start_position, end_position - start_position)
         )
         records = cursor.fetchall()
-        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not retrieve tracks from database")
+    finally:
+        cursor.close()
+        conn.close()
     
     to_ret = []
     for record in records:
@@ -443,6 +452,7 @@ def get_unselected_tracks(start_position: int, end_position: int, sort_field: st
 @app.get('/get-basic-track-info/{track_id}')
 def get_basic_track_info(track_id):
     # Check if song exists
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -457,10 +467,12 @@ def get_basic_track_info(track_id):
             (track_id,)
         )
         record = cursor.fetchone()
-        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to find track with given track ID")
+    finally:
+        cursor.close()
+        conn.close()
     
     # Check if record is None - if so, then song does not exist in database
     if record is None:
@@ -540,6 +552,7 @@ def upload_track(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: invalid value/s in track provided")
     
     # Check if track with same name and artist has already been uploaded
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -558,10 +571,14 @@ def upload_track(
         cursor.close()
     except Exception as e:
         print(e)
+        cursor.close()
+        conn.close()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not execute query to search for track")
+    
     # Check if there are any records
     if not record is None:
         # If there are any records returned, song has already been added, so return an error response
+        conn.close()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Error: song has already been added to the database')
     
     # Calculate timbre values
@@ -569,11 +586,13 @@ def upload_track(
     if not len(files) == 0:
         timbre_values = calculate_timbre_values(files[0])
         if len(timbre_values) < 16:
+            conn.close()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, 
                 detail="Error: could not generate enough timbre values using the audio file provided. Please provide another audio file"
             )
     else:
+        conn.close()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no audio file provided")
 
     # Create embedding for the track
@@ -594,7 +613,10 @@ def upload_track(
         time_signature=time_signature,
         timbre_values=timbre_values
     )
-    embedding = get_embedding(song)
+    try:
+        embedding = get_embedding(song)
+    except:
+        conn.close()
     
     # Save file to storage
     audio_file_path = "piggy.mp3"
@@ -620,10 +642,13 @@ def upload_track(
             )
         )
         conn.commit()
-        cursor.close()
     except Exception as e:
        print(e)
+       conn.rollback()
        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not insert track into database")
+    finally:
+        cursor.close()
+        conn.close()
 
     # Return 201 CREATED success response
     return Response(status_code=status.HTTP_201_CREATED)
@@ -645,6 +670,7 @@ def select_set_tracks(tracks: SetTrackIDs):
             return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
             
     # check that at least one of the non-seed track IDs provided are in the database
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -657,10 +683,12 @@ def select_set_tracks(tracks: SetTrackIDs):
                 track_id IN %s;
             ''', (tuple(track_ids),))
         records = cursor.fetchall()
-        cursor.close()
     except Exception as e:
        print(e)
        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database for track IDs")
+    finally:
+        cursor.close()
+        conn.close()
     
     # check if any records were returned
     if len(records) == 0:
@@ -693,6 +721,7 @@ def select_seed_track(track: SeedTrackID):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: null or empty value provided for seed track ID")
     
     # check that seed track is in database
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -706,10 +735,12 @@ def select_seed_track(track: SeedTrackID):
             ''', (track.track_id,)
         )
         record = cursor.fetchone()
-        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database to find provided seed track ID")
+    finally:
+        cursor.close()
+        conn.close()
 
     # Check if any records were returned, i.e. if seed track is in database
     if record is None:
@@ -735,6 +766,8 @@ def edit_track(tracks: EditTracks):
     # TODO: get SELECT query to return NamedTuple so it is easier to check if energy etc. has been changed
     original_track = tracks.original_track
     editted_track = tracks.editted_track
+
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -752,9 +785,13 @@ def edit_track(tracks: EditTracks):
         cursor.close()
     except Exception as e:
         print(e)
+        cursor.close()
+        conn.close()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not execute query to search for track")
+    
     # If not found, return 404
     if record is None:
+        conn.close()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find track with given ID")
     
     # TODO: implement check to see if embedding needs to be changed (i.e. if energy, danceability etc. has been updated)
@@ -796,10 +833,13 @@ def edit_track(tracks: EditTracks):
             )
         )
         conn.commit()
-        cursor.close()
     except Exception as e:
         print(e)
+        conn.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not update track values")
+    finally:
+        cursor.close()
+        conn.close()
     
     # Return success response
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -819,6 +859,7 @@ def add_set_tracks(tracks: SetTrackIDs):
             return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: only seed track was provided for set")
             
     # check that at least one of the non-seed track IDs provided are in the database
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -831,10 +872,12 @@ def add_set_tracks(tracks: SetTrackIDs):
                 track_id IN %s;
             ''', (tuple(track_ids),))
         records = cursor.fetchall()
-        cursor.close()
     except Exception as e:
-       print(e)
-       raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database for track IDs")
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database for track IDs")
+    finally:
+        cursor.close()
+        conn.close()
     
     # check if any records were returned
     if len(records) == 0:
@@ -857,6 +900,7 @@ def add_set_tracks(tracks: SetTrackIDs):
 @app.put('/delete-track/{track_id}') # TODO: test
 def delete_track(track_id):
     # Check if song exists
+    conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
@@ -874,10 +918,13 @@ def delete_track(track_id):
         cursor.close()
     except Exception as e:
         print(e)
+        cursor.close()
+        conn.close()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to find track with given track ID")
     
     # Check if record is None - if so, then song does not exist in database
     if record is None:
+        conn.close()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find song with given track ID")
     
     # If song exists, delete it
@@ -894,10 +941,13 @@ def delete_track(track_id):
             (track_id,)
         )
         conn.commit()
-        cursor.close()
     except Exception as e:
         print(e)
+        conn.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not delete track from database")
+    finally:
+        cursor.close()
+        conn.close()
     
     # Delete song file ---- commented out for now. Need to implement functionality. May even not allow saving of uploaded mp3 files
     # if not record[1] is None:
@@ -950,6 +1000,14 @@ def get_embedding(song: Song) -> np.ndarray:
     embedder.feed_forward()
     return embedder.get_output()
 
+def get_conn():
+    return psycopg2.connect(
+        database=DB,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        host=DB_HOST,
+        port=DB_PORT
+    )
 
 # Run API
 if __name__ == '__main__':
