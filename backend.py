@@ -289,8 +289,8 @@ def get_tracks_basic_info(start_position: int, end_position: int, sort_field: st
                 "genre": genre
             }
             to_ret.append(record_dict)
-        except TypeError as te:
-            print(te)
+        except Exception as e:
+            print(e)
 
     return JSONResponse(
         {
