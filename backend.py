@@ -5,7 +5,7 @@ import json
 
 # External libraries
 import psycopg2
-from fastapi import FastAPI, HTTPException, status, File, UploadFile, Depends
+from fastapi import FastAPI, HTTPException, status, File, UploadFile, Form
 from fastapi.responses import Response, JSONResponse
 import uvicorn
 from starlette.middleware.cors import CORSMiddleware
@@ -77,6 +77,7 @@ def get_next_recommendation(current_track_id):
             (current_track_id,)
         )
         record = cursor.fetchone()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to see if current track is in database")
@@ -177,6 +178,7 @@ def get_unplayed_tracks(start_position: int, end_position: int, sort_field: str,
             (unplayed_track_ids, start_position, end_position - start_position)
         )
         records = cursor.fetchall()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to get unplayed tracks")
@@ -255,6 +257,7 @@ def get_tracks_basic_info(start_position: int, end_position: int, sort_field: st
             (start_position, end_position - start_position)
         )
         records = cursor.fetchall()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not retrieve tracks from database")
@@ -311,6 +314,7 @@ def get_detailed_track_info(track_id):
             (track_id,)
         )
         record = cursor.fetchone()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to find track with given track ID")
@@ -396,6 +400,7 @@ def get_unselected_tracks(start_position: int, end_position: int, sort_field: st
             (tuple(selected_track_ids), start_position, end_position - start_position)
         )
         records = cursor.fetchall()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not retrieve tracks from database")
@@ -452,6 +457,7 @@ def get_basic_track_info(track_id):
             (track_id,)
         )
         record = cursor.fetchone()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to find track with given track ID")
@@ -507,12 +513,31 @@ class Track(BaseModel):
     mode: int
     bpm: float
     time_signature: int
-    timbre_values: List[List[float]] | None = None
 @app.post('/upload-track') # TODO: fix
-def upload_track(track: Track = Depends(), files: List[UploadFile] = File(...)):
+def upload_track(
+        track_id: str = Form(...), 
+        song_name: str = Form(...),
+        artist_name: str = Form(...),
+        release_year: int = Form(...),
+        genre: str = Form(...),
+        danceability: float = Form(...),
+        energy: float = Form(...),
+        loudness: float = Form(...),
+        valence: float = Form(...),
+        instrumentalness: float = Form(...),
+        key: int = Form(...),
+        mode: int = Form(...),
+        bpm: float = Form(...),
+        time_signature: int = Form(...),
+        files: List[UploadFile] = File(...)
+    ):
     # Check number of files uploaded
     if len(files) > 1:
         raise HTTPException(status_code=400, detail="Error: cannot upload more than one track at a time")
+    
+    # Validate values in track
+    if not is_valid_track(track_id, song_name, artist_name, release_year, genre, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: invalid value/s in track provided")
     
     # Check if track with same name and artist has already been uploaded
     cursor = conn.cursor()
@@ -527,59 +552,59 @@ def upload_track(track: Track = Depends(), files: List[UploadFile] = File(...)):
                 (song_name = %s AND artist_name = %s)
                 OR track_id = %s;
             ''',
-            (track.song_name, track.artist_name, track.track_id)
+            (song_name, artist_name, track_id)
         )
         record = cursor.fetchone()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not execute query to search for track")
     # Check if there are any records
     if not record is None:
         # If there are any records returned, song has already been added, so return an error response
-        raise HTTPException(status_code=409, detail='Error: song has already been added to the database')
-    
-    # Validate values in track
-    if not is_valid_track(track):
-        raise HTTPException(status_code=400, detail="Error: invalid value/s in track provided")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Error: song has already been added to the database')
     
     # Calculate timbre values
-    if track.timbre_values is None:
-        if not len(files) == 0:
-            track.timbre_values = calculate_timbre_values(files[0])
-            # TODO: uncomment once timbre value calculation has been implemented
-            # if len(track.timbre_values) < 16:
-            #     raise HTTPException(
-            #         status_code=status.HTTP_400_BAD_REQUEST, 
-            #         detail="Error: could not generate enough timbre values using the audio file provided. Please provide another audio file"
-            #     )
+    timbre_values = None
+    if not len(files) == 0:
+        timbre_values = calculate_timbre_values(files[0])
+        if len(timbre_values) < 16:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Error: could not generate enough timbre values using the audio file provided. Please provide another audio file"
+            )
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no audio file provided")
 
     # Create embedding for the track
     song = Song(
-        song_name=track.song_name,
-        artist_name=track.artist_name,
-        release_year=track.release_year,
-        genre=track.genre,
-        danceability=track.danceability,
-        energy=track.energy,
-        loudness=track.loudness,
-        valence=track.valence,
-        instrumentalness=track.instrumentalness,
-        key=track.key,
-        mode=track.mode,
-        tempo=track.bpm,
-        time_signature=track.time_signature,
-        timbre_values=track.timbre_values
+        song_id=track_id,
+        song_name=song_name,
+        artist_name=artist_name,
+        release_year=release_year,
+        genre=genre,
+        danceability=danceability,
+        energy=energy,
+        loudness=loudness,
+        valence=valence,
+        instrumentalness=instrumentalness,
+        key=key,
+        mode=mode,
+        tempo=bpm,
+        time_signature=time_signature,
+        timbre_values=timbre_values
     )
     embedding = get_embedding(song)
     
     # Save file to storage
-    audio_file_path = None
-    if len(files) > 0:
-        audio_file_path = f'./tracks/{track.track_id}.{os.path.splitext(files[0].filename)[1]}'
-        with open(audio_file_path, 'wb+') as f:
-            f.write(files[0].file.read())
+    audio_file_path = "piggy.mp3"
+    # if len(files) > 0:
+    #     audio_file_path = f'./tracks/{track_id}.{os.path.splitext(files[0].filename)[1]}'
+    #     with open(audio_file_path, 'wb+') as f:
+    #         f.write(files[0].file.read())
 
     # Insert into database
+    cursor = conn.cursor()
     try:
         cursor.execute(
             '''
@@ -589,15 +614,15 @@ def upload_track(track: Track = Depends(), files: List[UploadFile] = File(...)):
                 (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
             ''',
             (
-                track.track_id, track.song_name, track.artist_name, track.danceability, track.energy, 
-                track.loudness, track.valence, track.instrumentalness, track.key, track.mode, 
-                track.bpm, track.time_signature, track.timbre_values, embedding.tolist(), audio_file_path
+                track_id, song_name, artist_name, danceability, energy, 
+                loudness, valence, instrumentalness, key, mode, 
+                bpm, time_signature, timbre_values.tolist(), embedding.tolist(), audio_file_path
             )
         )
         conn.commit()
+        cursor.close()
     except Exception as e:
        print(e)
-       os.remove(audio_file_path) # delete track
        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not insert track into database")
 
     # Return 201 CREATED success response
@@ -632,6 +657,7 @@ def select_set_tracks(tracks: SetTrackIDs):
                 track_id IN %s;
             ''', (tuple(track_ids),))
         records = cursor.fetchall()
+        cursor.close()
     except Exception as e:
        print(e)
        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database for track IDs")
@@ -657,7 +683,6 @@ def select_set_tracks(tracks: SetTrackIDs):
     # return success response
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
-
 class SeedTrackID(BaseModel):
     track_id: str
 @app.post('/select-seed-track')
@@ -681,6 +706,7 @@ def select_seed_track(track: SeedTrackID):
             ''', (track.track_id,)
         )
         record = cursor.fetchone()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database to find provided seed track ID")
@@ -696,6 +722,8 @@ def select_seed_track(track: SeedTrackID):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.__str__())
     # return success response
     return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
 
 # API PUT endpoints
 class EditTracks(BaseModel):
@@ -721,6 +749,7 @@ def edit_track(tracks: EditTracks):
             (original_track.track_id,)
         )
         record = cursor.fetchone()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not execute query to search for track")
@@ -733,6 +762,7 @@ def edit_track(tracks: EditTracks):
     embedding = np.random.rand(128) 
     
     # Update track with given data
+    cursor = conn.cursor()
     try:
         cursor.execute(
             '''
@@ -766,6 +796,7 @@ def edit_track(tracks: EditTracks):
             )
         )
         conn.commit()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not update track values")
@@ -800,6 +831,7 @@ def add_set_tracks(tracks: SetTrackIDs):
                 track_id IN %s;
             ''', (tuple(track_ids),))
         records = cursor.fetchall()
+        cursor.close()
     except Exception as e:
        print(e)
        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not search database for track IDs")
@@ -839,6 +871,7 @@ def delete_track(track_id):
             (track_id,)
         )
         record = cursor.fetchone()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to find track with given track ID")
@@ -848,6 +881,7 @@ def delete_track(track_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find song with given track ID")
     
     # If song exists, delete it
+    cursor = conn.cursor()
     try:
         cursor.execute(
             '''
@@ -860,6 +894,7 @@ def delete_track(track_id):
             (track_id,)
         )
         conn.commit()
+        cursor.close()
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not delete track from database")
@@ -875,43 +910,44 @@ def delete_track(track_id):
 
 # Functional Methods
 # Check if track data provided is valid
-def is_valid_track(track: Track):
+def is_valid_track(track_id, song_name, artist_name, release_year, genre, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature) -> bool:
     # Check song name, artist name, track ID, and genre aren't only white space
-    if track.song_name.strip() == '' or track.artist_name.strip() == '' or track.track_id.strip() == '' or track.genre.strip() == '':
+    if song_name.strip() == '' or artist_name.strip() == '' or track_id.strip() == '' or genre.strip() == '':
         return False
     
     # Check if track ID contains whitespace
-    if track.track_id.__contains__(' ') or track.track_id.__contains__('\t') or track.track_id.__contains__('\n'):
+    if track_id.__contains__(' ') or track_id.__contains__('\t') or track_id.__contains__('\n'):
         return False
     
     # Check if song attribute values provided are valid
-    if track.danceability < 0 or track.danceability > 1:
+    if danceability < 0 or danceability > 1:
         return False
-    if track.energy < 0 or track.energy > 1:
+    if energy < 0 or energy > 1:
         return False
-    if track.valence < 0 or track.valence > 1:
+    if valence < 0 or valence > 1:
         return False
-    if track.instrumentalness < 0 or track.instrumentalness > 1:
+    if instrumentalness < 0 or instrumentalness > 1:
         return False
     
     # Check key and mode values
-    if track.key < 0 or track.key > 12 or not track.mode in (0, 1):
+    if key < 0 or key > 12 or not mode in (0, 1):
         return False
     
     # Check that time signature is a whole number and >= 1
-    if round(track.time_signature) != track.time_signature or track.time_signature < 1:
+    if round(time_signature) != time_signature or time_signature < 1:
         return False
     
     # Track data provided is valid, so return True
     return True
 
 # TODO: implement calculating timbre values - calculate MFCC values and then reduce them to 12 dimensions using PCA according to ChatGPT
-def calculate_timbre_values(file: UploadFile): # TODO: implement
+def calculate_timbre_values(file: UploadFile) -> np.ndarray: # TODO: implement
+    print(file.file.name)
     return np.random.rand(20, 12)
 
-def get_embedding(song: Song): 
+def get_embedding(song: Song) -> np.ndarray: 
     embedder.set_input(song.get_nn_input())
-    embedder.forward()
+    embedder.feed_forward()
     return embedder.get_output()
 
 
