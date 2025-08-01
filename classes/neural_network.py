@@ -264,7 +264,7 @@ class NeuralNetwork():
     # Made with assistance from http://neuralnetworksanddeeplearning.com/chap2.html
     def back_propogate(self, lr: float, error_prime: np.ndarray,  momentum=None, clip_score=1.0):
         # Get first delta value
-        delta = error_prime * self._layers[-1].apply_activation_function_dx()
+        delta = error_prime * self._layers[-1].apply_activation_function_dx() # multiply gradient of cost function with derivative of activation function applied to z values
         
         # Do backprop for final layer
         bias_grad = delta
@@ -287,7 +287,7 @@ class NeuralNetwork():
             # Bias gradient is just delta
             bias_grad = delta
             # Weights gradient is delta . a_l-1 where a_l-1 is the activated output of the previous layer/input of current layer
-            weights_grad = np.outer(delta, curr_layer.get_input())
+            weights_grad = np.outer(delta, curr_layer.get_input()) # curr_layer.get_input() returns output of previous layer
 
             # Update current layer
             curr_layer.update_layer(weights_grad, bias_grad, lr, momentum, clip_score)
