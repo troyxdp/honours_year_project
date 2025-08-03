@@ -1,7 +1,8 @@
 import os
 import random
+import math
 
-from classes.neural_network import NeuralNetwork
+import numpy as np
 
 class Recommender():
     
@@ -115,7 +116,7 @@ class Recommender():
         return None
     
     # get the next track recommendation given which track is currently playing
-    def get_next_recommendation_track_id(self, curr_track_info):
+    def get_next_recommendation_track_id(self, curr_track_info: tuple):
         # update currently playing track data and list of played tracks
         self._current_track_info = curr_track_info
 
@@ -149,12 +150,95 @@ class Recommender():
     
     # FUNCTIONALITY METHODS
     # this method is called to generate new recommendations 
-    def _regenerate_recommendations(self, curr_track_id: str): # TODO
-        # TODO: implement TSP algorithm here - for now it is just a random shuffle
-        random.shuffle(self._recommendations)
+    def _regenerate_recommendations(self, curr_track_info: tuple): # TODO
+        # get data for generating recommendations
+        unplayed_tracks = self._recommendations.copy()
+        
+        # check if current track data was found
+        if curr_track_info is None:
+            raise ValueError("Error: could not find current track data")
+        
+        # generate recommendations
+        self._recommendations = self._get_greedy_nearest_neighbour_path(curr_track_info, unplayed_tracks.copy())
 
     # method to initialize recommendations
-    def init_recommendations(self): # TODO
-        # TODO: implement TSP algorithm here - for now it is just a random shuffle
-        self._recommendations = self._selected_tracks_info.copy()
+    def init_recommendations(self): 
+        # generate recommendations using seed track of set and all of the selected tracks (which never include the set track)
+        self._recommendations = self._get_greedy_nearest_neighbour_path(self._seed_track_info, self._selected_tracks_info.copy())
+
+    # greedy nearest neighbour search
+    def _get_greedy_nearest_neighbour_path(self, curr_track: tuple, tracks: list) -> list:
+        # path being generated
+        recommendation_path = []
+        
+        # find next track
+        nearest_neighbour_index = 0
+        nearest_neighbour_distance = self._get_euclidean_distance(curr_track[1], tracks[0][1])
+        for i, track in enumerate(tracks[1:]):
+            dist = self._get_euclidean_distance(curr_track[1], track[1])
+            if dist < nearest_neighbour_distance:
+                nearest_neighbour_index = i + 1
+                nearest_neighbour_distance = dist
+
+        # add next track to recommendation path and remove from unplayed tracks
+        recommendation_path.append(tracks[nearest_neighbour_index])
+        tracks.pop(nearest_neighbour_index)
+
+        # generate the rest of the path
+        last_added_track = recommendation_path[0]
+        while len(tracks) > 0:
+            # get nearest neighbour
+            nearest_neighbour_index = 0
+            nearest_neighbour_distance = self._get_euclidean_distance(last_added_track[1], tracks[0][1])
+            for i, track in enumerate(tracks[1:]):
+                dist = self._get_euclidean_distance(last_added_track[1], track[1])
+                if dist < nearest_neighbour_distance:
+                    nearest_neighbour_index = i + 1
+                    nearest_neighbour_distance = dist
+            
+            # update last added track; add to recommendation path; remove from tracks
+            last_added_track = tracks[nearest_neighbour_index]
+            recommendation_path.append(tracks[nearest_neighbour_index])
+            tracks.pop(nearest_neighbour_index)
+
+        return recommendation_path
+
+    def _get_euclidean_distance(self, x: np.ndarray, y: np.ndarray) -> float:
+        sigma = 0
+        for xi, yi in zip(x, y):
+            sigma += (xi - yi) ** 2
+        return np.sqrt(sigma)
     
+if __name__ == '__main__':
+    curr_track = ('a', np.array([1, 1]))
+    tracks = [
+        ('f', np.array([-1, 1])),
+        ('c', np.array([1, -1])),
+        ('b', np.array([2, 0])),
+        ('e', np.array([-2, 0])),
+        ('d', np.array([-1, -1])),
+    ]
+
+    # test initializing recommendations
+    recommender = Recommender()
+    recommender.set_seed_track_info(curr_track)
+    recommender.init_selected_track_ids(tracks.copy())
+    recommender.init_recommendations()
+    print("Recommendations path after initialization:")
+    print(recommender._recommendations)
+    print()
+
+    # test getting next recommendation when previous recommendation taken
+    next_rec_id = recommender.get_next_recommendation_track_id(('b', np.array([2, 0])))
+    print("Next recommendation given user played b:")
+    print(next_rec_id)
+    print("Recommendation path:")
+    print(recommender._recommendations)
+    print()
+
+    # test getting next recommendation when previous recommendation NOT taken
+    next_rec_id = recommender.get_next_recommendation_track_id(tracks[0])
+    print("Next recommendation given user played f:")
+    print(next_rec_id)
+    print("Recommendation path:")
+    print(recommender._recommendations)

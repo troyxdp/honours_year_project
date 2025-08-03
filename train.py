@@ -32,14 +32,14 @@ if __name__ == '__main__':
     layer_3_weights = Trainer.get_he_initialization(128, 64)
     layer_3_biases = np.random.rand(64) * bias_scale
     layer_3 = FeedForwardLayer(layer_3_weights, layer_3_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
-    # Layer 4
-    layer_4_weights = Trainer.get_he_initialization(64, 32)
-    layer_4_biases = np.random.rand(32) * bias_scale
-    layer_4 = FeedForwardLayer(layer_4_weights, layer_4_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
-    # Layer 5
-    layer_5_weights = Trainer.get_he_initialization(32, 64)
-    layer_5_biases = np.random.rand(64) * bias_scale
-    layer_5 = FeedForwardLayer(layer_5_weights, layer_5_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
+    # # Layer 4
+    # layer_4_weights = Trainer.get_he_initialization(64, 32)
+    # layer_4_biases = np.random.rand(32) * bias_scale
+    # layer_4 = FeedForwardLayer(layer_4_weights, layer_4_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
+    # # Layer 5
+    # layer_5_weights = Trainer.get_he_initialization(32, 64)
+    # layer_5_biases = np.random.rand(64) * bias_scale
+    # layer_5 = FeedForwardLayer(layer_5_weights, layer_5_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
     # Layer 6
     layer_6_weights = Trainer.get_he_initialization(64, 128)
     layer_6_biases = np.random.rand(128) * bias_scale
@@ -56,8 +56,8 @@ if __name__ == '__main__':
     nn.append_layer(layer_1)
     nn.append_layer(layer_2)
     nn.append_layer(layer_3)
-    nn.append_layer(layer_4)
-    nn.append_layer(layer_5)
+    # nn.append_layer(layer_4)
+    # nn.append_layer(layer_5)
     nn.append_layer(layer_6)
     nn.append_layer(layer_7)
     nn.append_layer(layer_8)
@@ -67,7 +67,7 @@ if __name__ == '__main__':
         training_network=nn,
         initial_lr=0.001,
         final_lr=0.0001,
-        num_epochs=400,
+        num_epochs=120,
         dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset',
         output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2'
     )

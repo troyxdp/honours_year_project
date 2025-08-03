@@ -32,6 +32,7 @@ class Song():
         self.song_name = song_name
         self.artists = artist_name
         self.release_year = release_year
+        self.genre = genre
 
         # Spotify Attribuutes
         self.danceability = danceability
@@ -161,3 +162,23 @@ class Song():
     def get_discrete_fourier_transform(self):
         if self.audio_file_path is None:
             raise AttributeError("Error: 'audio' attribute is not set")
+        
+    def __str__(self):
+        to_ret = f'"{self.song_name}" by {self.artists} ({self.release_year})'
+
+        to_ret += f'\nKey/Mode: {self.key}/{self.mode}'
+        to_ret += f'\n{self.tempo} BPM in {self.time_signature} time'
+        
+        to_ret += f'\nDanceability: {self.danceability}'
+        to_ret += f'\nEnergy: {self.energy}'
+        to_ret += f'\nLoudness: {self.loudness}'
+        to_ret += f'\nValence: {self.valence}'
+        to_ret += f'\nInstrumentalness: {self.instrumentalness}'
+
+        return to_ret
+    
+    def __repr__(self):
+        return self.__str__()
+    
+    def to_string(self):
+        return self.__str__()

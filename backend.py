@@ -548,6 +548,7 @@ def upload_track(
         raise HTTPException(status_code=400, detail="Error: cannot upload more than one track at a time")
     
     # Validate values in track
+    track_id = track_id.upper()
     if not is_valid_track(track_id, song_name, artist_name, release_year, genre, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: invalid value/s in track provided")
     

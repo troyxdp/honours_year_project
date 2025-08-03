@@ -138,6 +138,89 @@ def is_same_artists(song_1_artists, song_2_artists):
     # Return true
     return True
 
+def find_tracks_in_smp(msd_path, smp_path, output_path):
+    # Check MSD path provided is valid
+    if not os.path.isdir(msd_path):
+        raise FileNotFoundError(f"Error: could not find directory {msd_path}")
+    
+    # Check Spotify Tracks path provided is valid
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"Error: could not find directory {msd_path}")
+
+    # FOR DEBUGGING
+    counter = 1
+    success_count = 0
+    fail_count = 0
+
+    # Get data
+    if len(os.listdir(msd_path)) == 0:
+        raise FileNotFoundError(f"Error: could not find dataset --- {msd_path} is empty")
+    # Iterate through directory provided
+    for path_dir_1 in sorted(os.listdir(msd_path)):
+        dir_path_1 = os.path.join(msd_path, path_dir_1)
+        if len(os.listdir(dir_path_1)) == 0:
+            raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
+        print(f"\nGOING INTO DIRECTORY {path_dir_1}\n")
+        # Iterate through subdirectories
+        for path_dir_2 in sorted(os.listdir(dir_path_1)):
+            dir_path_2 = os.path.join(dir_path_1, path_dir_2)
+            if len(os.listdir(dir_path_2)) == 0:
+                raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_2} is empty")
+            print(f"\nGOING INTO DIRECTORY {path_dir_1}/{path_dir_2}\n")
+            # Iterate through subsubdirectories
+            for path_dir_3 in sorted(os.listdir(dir_path_2)):
+                dir_path_3 = os.path.join(dir_path_2, path_dir_3)
+                print(f"\nGOING INTO DIRECTORY {path_dir_1}/{path_dir_2}/{path_dir_3}\n")
+                # Get files
+                for file_name in sorted(os.listdir(dir_path_3)):
+                    file_path = os.path.join(dir_path_3, file_name)
+                    with tables.open_file(file_path, mode='r') as h5:
+                        # Get values for dataset
+                        num_songs = h5.root.metadata.songs.nrows
+                        for i in range(num_songs):
+                            # Get values from MSD
+                            track_name = str(h5.root.metadata.songs.cols.title[i])[2:-1]
+                            artists = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1].split(';') # get array of artists
+
+                            # Iterate through dataset
+                            found = False
+                            for chunk in pd.read_csv(csv_path, chunksize=1000):
+                                for row in chunk.itertuples(index=True):
+                                    row_song_name = str(row.track_name).lower()
+                                    row_song_artists = str(row.artists).split(';')
+                                    curr_song_name = track_name.lower()
+                                    if row_song_name == curr_song_name: # TODO: consider using __contains__ both ways
+                                        if is_same_artists(row_song_artists, artists):
+                                            # Get values
+                                            danceability = row.danceability
+                                            energy = row.energy
+                                            instrumentalness = row.instrumentalness
+                                            loudness = row.loudness
+                                            valence = row.valence
+                                            # genre = row.track_genre
+
+                                            # Update found and break
+                                            found = True
+                                            break
+                                    if found:
+                                        break
+                                if found:
+                                    break
+
+                            # Write to CSV if corresponding entry is found in Spotify Tracks Dataset
+                            if found:
+                                print(f"\n{counter}: Found entry for {track_name}\n")
+                                successfully_created = True
+                                if successfully_created:
+                                    print("Successfully created track and merged the data")
+                                    success_count += 1
+                                else:
+                                    print("Failed to create the track and merge the data")
+                                    fail_count += 1
+                            else:
+                                print(f"{counter}: No entry found for {track_name}")
+                            counter += 1
+
 def create_hdf5_extended_msd(msd_path, csv_path, output_path):
     # Check MSD path provided is valid
     if not os.path.isdir(msd_path):

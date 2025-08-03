@@ -6,7 +6,7 @@ import csv
 import numpy as np
 import pandas as pd
 import tables
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
