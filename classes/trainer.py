@@ -253,20 +253,17 @@ class Trainer():
                 raise ValueError("Error: invalid value provided for instrumentalness")
 
     def is_missing_values(self, song: Song):
-        # Check if missing year
-        # if song.release_year == 0:
-        #     return True
-        # Check if missing genre
-        # if song.genre == '':
-        #     return True
-        # Check if missing energy
-        if song.energy == 0:
-            return True
         # Check if missing BPM
         if song.tempo == 0:
             return True
-        # Check if missing mfcc values
+        # Check if missing timbre values
         if len(song.timbre_values) < 16:
+            return True
+        # Check if missing danceability
+        if song.danceability == 0:
+            return True
+        # Check if missing energy
+        if song.energy == 0:
             return True
         # Check if missing valence
         if song.valence == 0:

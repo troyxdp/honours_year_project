@@ -71,16 +71,16 @@ if __name__ == '__main__':
             initial_lr=0.001,
             final_lr=0.0001,
             num_epochs=150,
-            dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset',
-            output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_3'
+            dataset_path='./MillionSongSpotifyTracksDataset',
+            output_folder='./networks/experiment_3'
         )
 
         trainer.train_model()
 
     if input("Would you like to extract the encoder section of a model? (y/n) ").lower() == 'y':
-        nn = NeuralNetwork.load_network('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2/best_val_loss_network.pkl')
+        nn = NeuralNetwork.load_network('./networks/experiment_2/best_val_loss_network.pkl')
         encoder = NeuralNetwork(202, 64)
         for i in range(int(nn.get_num_layers() / 2)):
             encoder.append_layer(nn.get_layer(i))
         print(encoder)
-        encoder.save_network(os.path.join('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/encoder', 'encoder.pkl'))
+        encoder.save_network(os.path.join('./networks/encoder', 'encoder.pkl'))

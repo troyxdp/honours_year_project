@@ -28,7 +28,7 @@ conn = psycopg2.connect(
 if __name__ == '__main__':
     num_tracks_to_add = 100
     cursor = conn.cursor()
-    for i, track in enumerate(Trainer.get_track_data('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset')):
+    for i, track in enumerate(Trainer.get_track_data('./MillionSongSpotifyTracksDataset')):
         if i < num_tracks_to_add:
             cursor.execute(
                 '''
