@@ -229,6 +229,9 @@ class NeuralNetwork():
         return NeuralNetwork.sigmoid(x) * (1 - NeuralNetwork.sigmoid(x))
 
     # GETTER METHODS
+    def get_num_layers(self):
+        return len(self._layers)
+
     def get_layer(self, layer_num):
         return self._layers[layer_num]
         

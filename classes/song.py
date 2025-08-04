@@ -164,7 +164,7 @@ class Song():
             raise AttributeError("Error: 'audio' attribute is not set")
         
     def __str__(self):
-        to_ret = f'"{self.song_name}" by {self.artists} ({self.release_year})'
+        to_ret = f'"{self.song_name}" by {self.artists}'
 
         to_ret += f'\nKey/Mode: {self.key}/{self.mode}'
         to_ret += f'\n{self.tempo} BPM in {self.time_signature} time'
