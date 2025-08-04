@@ -33,6 +33,8 @@ NEURAL_NETWORK_PATH = os.getenv('NEURAL_NETWORK_PATH')
 
 # Load embedding neural network
 embedder = NeuralNetwork.load_network(file_path=NEURAL_NETWORK_PATH)
+print(NEURAL_NETWORK_PATH)
+print(embedder)
 
 # Load recommender
 recommender = Recommender()
@@ -510,21 +512,6 @@ def end_set():
 
 
 # API POST endpoints
-class Track(BaseModel):
-    track_id: str
-    song_name: str
-    artist_name: str
-    release_year: int
-    genre: str
-    danceability: float
-    energy: float
-    loudness: float
-    valence: float
-    instrumentalness: float
-    key: int
-    mode: int
-    bpm: float
-    time_signature: int
 @app.post('/upload-track') # TODO: fix
 def upload_track(
         track_id: str = Form(...), 
@@ -614,17 +601,13 @@ def upload_track(
         time_signature=time_signature,
         timbre_values=timbre_values
     )
-    try:
-        embedding = get_embedding(song)
-    except:
-        conn.close()
+    embedding = get_embedding(song)
     
     # Save file to storage --- not doing for now
-    audio_file_path = "piggy.mp3"
-    # if len(files) > 0:
-    #     audio_file_path = f'./tracks/{track_id}.{os.path.splitext(files[0].filename)[1]}'
-    #     with open(audio_file_path, 'wb+') as f:
-    #         f.write(files[0].file.read())
+    if len(files) > 0:
+        audio_file_path = f'./tracks/{track_id}{os.path.splitext(files[0].filename)[1]}'
+        with open(audio_file_path, 'wb+') as f:
+            f.write(files[0].file.read())
 
     # Insert into database
     cursor = conn.cursor()
@@ -759,29 +742,44 @@ def select_seed_track(track: SeedTrackID):
 
 
 # API PUT endpoints
+class Track(BaseModel):
+    track_id: str
+    song_name: str
+    artist_name: str
+    release_year: int
+    genre: str
+    danceability: float
+    energy: float
+    loudness: float
+    valence: float
+    instrumentalness: float
+    key: int
+    mode: int
+    bpm: float
+    time_signature: int
 class EditTracks(BaseModel):
-    original_track: Track
+    original_track_id: str
     editted_track: Track
 @app.put('/edit-track') # TODO: test
 def edit_track(tracks: EditTracks):
-    # Check if song is in database
-    # TODO: get SELECT query to return NamedTuple so it is easier to check if energy etc. has been changed
-    original_track = tracks.original_track
+    # Store parameters in variables
+    original_track_id = tracks.original_track_id
     editted_track = tracks.editted_track
 
+    # Check original_track is in DB and get timbre values while at it
     conn = get_conn()
     cursor = conn.cursor()
     try:
         cursor.execute(
             '''
             SELECT
-                *
+                timbre_values
             FROM
                 track
             WHERE
                 track_id = %s;
             ''',
-            (original_track.track_id,)
+            (original_track_id,)
         )
         record = cursor.fetchone()
         cursor.close()
@@ -796,9 +794,47 @@ def edit_track(tracks: EditTracks):
         conn.close()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find track with given ID")
     
-    # TODO: implement check to see if embedding needs to be changed (i.e. if energy, danceability etc. has been updated)
-    # TODO: implement recalculation of embedding
-    embedding = np.random.rand(128) 
+    # Check if editted track is valid
+    is_valid = is_valid_track(
+        editted_track.track_id, 
+        editted_track.song_name, 
+        editted_track.artist_name, 
+        editted_track.release_year, 
+        editted_track.genre, 
+        editted_track.danceability, 
+        editted_track.energy, 
+        editted_track.loudness, 
+        editted_track.valence, 
+        editted_track.instrumentalness, 
+        editted_track.key, 
+        editted_track.mode, 
+        editted_track.bpm, 
+        editted_track.time_signature
+    )
+    if not is_valid:
+        conn.close()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: invalid values provided for editted track")
+    
+    timbre_values = np.array(record[0])
+    
+    song = Song(
+        song_id=editted_track.track_id,
+        song_name=editted_track.song_name,
+        artist_name=editted_track.artist_name,
+        release_year=editted_track.release_year,
+        genre=editted_track.genre,
+        danceability=editted_track.danceability,
+        energy=editted_track.energy,
+        loudness=editted_track.loudness,
+        valence=editted_track.valence,
+        instrumentalness=editted_track.instrumentalness,
+        key=editted_track.key,
+        mode=editted_track.mode,
+        tempo=editted_track.bpm,
+        time_signature=editted_track.time_signature,
+        timbre_values=timbre_values
+    )
+    embedding = get_embedding(song)
     
     # Update track with given data
     cursor = conn.cursor()
@@ -831,7 +867,7 @@ def edit_track(tracks: EditTracks):
                 editted_track.danceability, editted_track.energy, editted_track.loudness, editted_track.valence, editted_track.instrumentalness,
                 editted_track.key, editted_track.mode, editted_track.bpm, editted_track.time_signature, embedding.tolist(),
 
-                original_track.track_id
+                original_track_id
             )
         )
         conn.commit()
@@ -899,7 +935,7 @@ def add_set_tracks(tracks: SetTrackIDs):
 
 # API DELETE endpoints
 # Delete track from database and delete audio file
-@app.put('/delete-track/{track_id}') # TODO: test
+@app.delete('/delete-track/{track_id}') # TODO: test
 def delete_track(track_id):
     # Check if song exists
     conn = get_conn()
@@ -952,8 +988,8 @@ def delete_track(track_id):
         conn.close()
     
     # Delete song file ---- commented out for now. Need to implement functionality. May even not allow saving of uploaded mp3 files
-    # if not record[1] is None:
-    #     os.remove(record[1])
+    if not record[1] is None:
+        os.remove(record[1])
         
     # Return success response
     return Response(status_code=status.HTTP_204_NO_CONTENT)
