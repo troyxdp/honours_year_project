@@ -4,6 +4,21 @@ import json
 
 import pandas as pd
 
+def change_delimiter_in_csv(input_path, output_path, delimiter):
+    count = 0
+    with open(output_path, 'w') as f:
+        writer = csv.writer(f, delimiter=delimiter, quotechar='|')
+        writer.writerow(['user_id', 'track_id', 'play_count'])
+        for chunk in pd.read_csv(input_path, delimiter='\t', chunksize=1000):
+            for row in chunk.itertuples(index=False, name=None):
+                user_id = row[0]
+                song_id = row[1]
+                play_count = row[2]
+                writer.writerow([user_id, song_id, play_count])
+                count += 1
+                if count % 1000 == 0:
+                    print(count)
+
 def extract_from_track_features_csv(input_path, output_path):
     # Extract relevant data from first CSV
     counter = 0
@@ -141,4 +156,11 @@ if __name__ == '__main__':
             '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/SpotifyTracksDataset/extracted_data.csv',
             '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/SpotifyTracksDataset/spotify_tracks_cleaned_data.csv',
             11
+        )
+
+    if input("Would you like to change the delimiter of a CSV file? ").lower() == 'y':
+        change_delimiter_in_csv(
+            '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/plays_data/train_triplets.csv',
+            '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/plays_data/train_triplets_edit.csv',
+            ','
         )

@@ -323,6 +323,56 @@ def create_hdf5_extended_msd(msd_path, csv_path, output_path):
     print(f"Number of tracks successfully created: {success_count}")
     print(f"Number of failures when attempting to create a track: {fail_count}")
 
+def create_test_dataset(dataset_path, csv_path, output_path):
+    # Get dataset file paths
+    trainer = Trainer(
+        training_network=NeuralNetwork(202, 202),
+        initial_lr=0.001,
+        final_lr=0.0001,
+        num_epochs=120,
+        dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset',
+        output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2'
+    )
+    file_paths = trainer.get_file_paths()
+
+    # Iterate through files
+    for file_path in sorted(file_paths):
+        # Create potential directory and file paths
+        song_id = os.path.splitext(os.path.basename(file_path))[0]
+        potential_dir_path = os.path.join(output_path, song_id[2], song_id[3], song_id[4])
+        potential_file_name = f"{song_id}.csv"
+        potential_file_path = os.path.join(potential_dir_path, potential_file_name)
+
+        # Search for song ID in Echo Nest Taste Profile dataset
+        found = False
+        print(f"\nSearching for song with ID {song_id}...")
+        for chunk in pd.read_csv(csv_path, delimiter=',', chunksize=1000):
+            for row in chunk.itertuples(index=True):
+                # Get track ID in Echo Nest Taste Profiles dataset and check if it is equal to the one of the track we are currently searching for
+                row_track_id = row.track_id
+                if row_track_id == song_id:
+                    # Create a directory path corresponding to the path of the dataset item if not already existing
+                    if not os.path.isdir(potential_dir_path):
+                        os.makedirs(potential_dir_path)
+
+                    # Create the file where user plays are listed if it does not exist
+                    if not os.path.exists(potential_file_path):
+                        with open(potential_file_path, 'w') as f:
+                            print(f"Creating file for song with ID {row_track_id}...")
+                            writer = csv.writer(f, delimiter=',')
+                            writer.writerow(["user_id", "track_id", 'play_count']) # Write the column names
+
+                    # Append data to CSV file
+                    with open(potential_file_path, 'a') as f:
+                        writer = csv.writer(f, delimiter=',')
+                        writer.writerow([row.user_id, row_track_id, row.play_count])
+
+                    found = True
+
+        if not found:
+            print(f"Could not find track with ID {song_id} in Echo Nest Taste Profiles dataset")
+
+
 if __name__ == '__main__':
     create_csv_dataset = input("Would you like to create a CSV merged dataset? (y/n) ")
     if create_csv_dataset.lower() == 'y':
@@ -349,11 +399,13 @@ if __name__ == '__main__':
 
         create_hdf5_extended_msd(msd_path, csv_path, output_path)
 
-    create_test_dataset = input("Would you like to create a test dataset? (y/n) ")
-    if create_test_dataset.lower() == 'y':
+    
+    if input("Would you like to create a test dataset? (y/n) ").lower() == 'y':
         dataset_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset'
-        smp_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/SpotifyMillionPlaylists'
-        output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/playlists'
-        copy_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/songs'
-
-        find_tracks_in_smp(dataset_path, smp_path, output_path, copy_path)
+        csv_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/plays_data/train_triplets.csv'
+        output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/songs'
+        create_test_dataset(
+            dataset_path=dataset_path,
+            csv_path=csv_path,
+            output_path=output_path
+        )
