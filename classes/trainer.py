@@ -118,11 +118,18 @@ class Trainer():
             mode = h5.root.analysis.songs.cols.mode[0]
             bpm = h5.root.analysis.songs.cols.tempo[0]
             time_signature = h5.root.analysis.songs.cols.time_signature[0]
-            mfcc_values = None
+
+            timbre_values = None
             if h5.root.analysis.songs.nrows == 0 + 1:
-                mfcc_values = h5.root.analysis.segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[0] : , :]
+                timbre_values = h5.root.analysis.segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[0] : , :]
             else:
-                mfcc_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[0] : h5.root.analysis.songs.cols.idx_segments_timbre[0+1], :]
+                timbre_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_pitches[0] : h5.root.analysis.songs.cols.idx_segments_pitches[0+1], :]
+            
+            chroma_values = None
+            if h5.root.analysis.songs.nrows == 0 + 1:
+                chroma_values = h5.root.analysis.segments_pitches[h5.root.analysis.songs.cols.idx_segments_timbre[0] : , :]
+            else:
+                chroma_values = h5.root.analysis.songs.cols.idx_segments_pitches[h5.root.analysis.songs.cols.idx_segments_pitches[0] : h5.root.analysis.songs.cols.idx_segments_pitches[0+1], :]
             
             # Get values from Spotify Tracks Dataset
             danceability = h5.root.analysis.songs.cols.danceability[0]
@@ -142,7 +149,8 @@ class Trainer():
                 mode=mode,
                 tempo=bpm,
                 time_signature=time_signature,
-                timbre_values=mfcc_values,
+                timbre_values=timbre_values,
+                chroma_values=chroma_values,
                 valence=valence,
                 instrumentalness=instrumentalness
             )
@@ -280,6 +288,12 @@ class Trainer():
         num_train_val_files = int(len(file_paths) * (self.train_percentage / 100.0))
         num_val_files = int(num_train_val_files * (self.val_percentage_of_train / 100.0))
         num_train_files = num_train_val_files - num_val_files
+        print(f"Number of training items: {num_train_files}")
+        print(f"Number of validation items: {num_val_files}\n")
+
+        # Create output folder (if it does not already exist)
+        if not os.path.isdir(self.output_folder):
+            os.makedirs(self.output_folder)
 
         # lists to store statistics for each epoch
         train_stats = []
@@ -290,6 +304,7 @@ class Trainer():
 
         # start training
         train_start_time = time.time()
+        print("Starting training...\n")
         for epoch in range(self.num_epochs):
             print(f"Epoch {epoch + 1}...")
             # get learning rate

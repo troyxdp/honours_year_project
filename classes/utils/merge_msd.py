@@ -1,8 +1,6 @@
 import os
 import csv
-import json
 import shutil
-import time
 
 import tables
 import pandas as pd
@@ -210,7 +208,7 @@ def create_test_dataset(dataset_path, csv_path, output_path):
         initial_lr=0.001,
         final_lr=0.0001,
         num_epochs=120,
-        dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset',
+        dataset_path=dataset_path,
         output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2'
     )
     file_paths = trainer.get_file_paths()
@@ -252,6 +250,27 @@ def create_test_dataset(dataset_path, csv_path, output_path):
         if not found:
             print(f"Could not find track with ID {song_id} in Echo Nest Taste Profiles dataset")
 
+def move_songs_to_test_folder(full_dataset_path, entp_path, output_path):
+    # Get dataset file paths
+    trainer = Trainer(
+        training_network=NeuralNetwork(202, 202),
+        initial_lr=0.001,
+        final_lr=0.0001,
+        num_epochs=120,
+        dataset_path=full_dataset_path,
+        output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2'
+    )
+    file_paths = trainer.get_file_paths()
+    file_paths = sorted(file_paths)
+
+    for file_path in file_paths:
+        file_name = os.path.basename(file_path)
+        potential_entp_path = os.path.join(entp_path, file_name[2], file_name[3], file_name[4], f"{os.path.splitext(file_name)[0]}.csv")
+        if os.path.exists(potential_entp_path):
+            test_dataset_dir = os.path.join(output_path, file_name[2], file_name[3], file_name[4])
+            if not os.path.isdir(test_dataset_dir):
+                os.makedirs(test_dataset_dir)
+            shutil.move(file_path, test_dataset_dir)
 
 if __name__ == '__main__':
     create_hdf5_dataset = input("Would you like to create a HDF5 merged dataset? (y/n) ")
@@ -281,4 +300,14 @@ if __name__ == '__main__':
             msd_path,
             curr_dataset_path,
             output_path
+        )
+
+    if input("Would you like to move the test dataset files to a different folder? (y/n) ").lower() == 'y':
+        full_dataset_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/ProjectDataset'
+        entp_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/song_play_data'
+        output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/test_songs'
+        move_songs_to_test_folder(
+            full_dataset_path=full_dataset_path, 
+            entp_path=entp_path, 
+            output_path=output_path
         )
