@@ -70,9 +70,10 @@ if __name__ == '__main__':
             training_network=nn,
             initial_lr=0.001,
             final_lr=0.0001,
+            momentum=0.9,
             num_epochs=150,
             dataset_path='./ProjectDataset',
-            output_folder='./networks/experiment_1'
+            output_folder='./networks/experiment_2'
         )
 
         trainer.train_model()

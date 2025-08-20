@@ -110,6 +110,7 @@ class FeedForwardLayer(Layer):
     def set_activation_function(self, act_fn):
         self._activation_function = act_fn
 
+    # Made with help from https://cs231n.github.io/neural-networks-3/#sgd
     def update_velocity(self, weights_grad, bias_grad, momentum, lr):
         # Set velocity value if it has not been initialized
         if self._velocity_weights is None and self._velocity_bias is None:
@@ -146,7 +147,7 @@ class FeedForwardLayer(Layer):
     def apply_activation_function_dx(self):
         return self._activation_function_dx(self._z_values)
     
-    # Made with help from 
+    # Made with help from https://cs231n.github.io/neural-networks-3/#sgd
     def update_layer(self, weights_grad, bias_grad, lr, momentum=None, clip_value=1.0):
         # Apply clipping
         weights_grad_norm = np.linalg.norm(weights_grad)
