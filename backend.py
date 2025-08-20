@@ -12,6 +12,7 @@ from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import numpy as np
+import librosa
 
 # Code I wrote
 from classes.recommender import Recommender
@@ -533,6 +534,8 @@ def upload_track(
     # Check number of files uploaded
     if len(files) > 1:
         raise HTTPException(status_code=400, detail="Error: cannot upload more than one track at a time")
+    if len(files) < 1:
+        raise HTTPException(status_code=400, detail="Error: no file provided for analysis")
     
     # Validate values in track
     track_id = track_id.upper()
@@ -569,46 +572,44 @@ def upload_track(
         conn.close()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Error: song has already been added to the database')
     
+    # Save file to storage --- not doing for now
+    audio_file_path = f'./tracks/{track_id}{os.path.splitext(files[0].filename)[1]}'
+    with open(audio_file_path, 'wb+') as f:
+        f.write(files[0].file.read())
+    
     # Calculate timbre values
-    timbre_values = None
-    if not len(files) == 0:
-        timbre_values = calculate_timbre_values(files[0])
-        if len(timbre_values) < 16:
-            conn.close()
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
-                detail="Error: could not generate enough timbre values using the audio file provided. Please provide another audio file"
-            )
-    else:
-        conn.close()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no audio file provided")
+    try:
+        chroma_values = calculate_chroma_values(audio_file_path)
+    except Exception as e:
+        print(e)
+        os.remove(audio_file_path)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: could not analyze audio file provided")
 
     # Create embedding for the track
-    song = Song(
-        song_id=track_id,
-        song_name=song_name,
-        artist_name=artist_name,
-        release_year=release_year,
-        genre=genre,
-        danceability=danceability,
-        energy=energy,
-        loudness=loudness,
-        valence=valence,
-        instrumentalness=instrumentalness,
-        key=key,
-        mode=mode,
-        tempo=bpm,
-        time_signature=time_signature,
-        timbre_values=timbre_values
-    )
-    embedding = get_embedding(song)
+    try:
+        song = Song(
+            song_id=track_id,
+            song_name=song_name,
+            artist_name=artist_name,
+            release_year=release_year,
+            genre=genre,
+            danceability=danceability,
+            energy=energy,
+            loudness=loudness,
+            valence=valence,
+            instrumentalness=instrumentalness,
+            key=key,
+            mode=mode,
+            tempo=bpm,
+            time_signature=time_signature,
+            chroma_values=chroma_values
+        )
+        embedding = get_embedding(song)
+    except Exception as e:
+        print(e)
+        os.remove(audio_file_path)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: could not get embedding for track")
     
-    # Save file to storage --- not doing for now
-    if len(files) > 0:
-        audio_file_path = f'./tracks/{track_id}{os.path.splitext(files[0].filename)[1]}'
-        with open(audio_file_path, 'wb+') as f:
-            f.write(files[0].file.read())
-
     # Insert into database
     cursor = conn.cursor()
     try:
@@ -622,7 +623,7 @@ def upload_track(
             (
                 track_id, song_name, artist_name, release_year, genre, 
                 danceability, energy, loudness, valence, instrumentalness, 
-                key, mode, bpm, time_signature, timbre_values.tolist(), 
+                key, mode, bpm, time_signature, chroma_values.tolist(), 
                 embedding.tolist(), audio_file_path
             )
         )
@@ -630,6 +631,7 @@ def upload_track(
     except Exception as e:
        print(e)
        conn.rollback()
+       os.remove(audio_file_path)
        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not insert track into database")
     finally:
         cursor.close()
@@ -1028,10 +1030,24 @@ def is_valid_track(track_id, song_name, artist_name, release_year, genre, dancea
     # Track data provided is valid, so return True
     return True
 
-# TODO: implement calculating timbre values - calculate MFCC values and then reduce them to 12 dimensions using PCA according to ChatGPT
-def calculate_timbre_values(file: UploadFile) -> np.ndarray: # TODO: implement
-    print(file.file.name)
-    return np.random.rand(20, 12)
+# calculate chroma values
+def calculate_chroma_values(file_path: str, num_values: int = 16) -> np.ndarray: # TODO: implement
+    # Load file
+    y, sr = librosa.load(file_path)
+
+    # Get Constant Q Chroma values
+    chroma_cq = librosa.feature.chroma_cqt(y=y, sr=sr, norm=1, n_chroma=12) # shape is (12, n_frames)
+
+    # Get note onsets
+    onsets = librosa.onset.onset_detect(y=y, sr=sr)
+
+    # Get chroma values at each note onset and return them
+    chroma_at_onsets = np.zeros((16, 12))
+    for i in range(num_values):
+        chroma_at_onsets[i] = chroma_cq[:, onsets[i]]
+    return chroma_at_onsets
+    
+
 
 def get_embedding(song: Song) -> np.ndarray: 
     embedder.set_input(song.get_nn_input())

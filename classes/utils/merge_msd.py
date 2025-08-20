@@ -12,106 +12,6 @@ from classes.hdf5_utils.dataset_creator import create_track_file
 from classes.trainer import Trainer
 from classes.neural_network import NeuralNetwork
 
-# Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
-# specifically the parts for getting each value from the h5 file
-def merge_msd_with_csv(msd_path, spotify_tracks_file_path, output_path):
-    # Check MSD path provided is valid
-    if not os.path.isdir(msd_path):
-        raise FileNotFoundError(f"Error: could not find directory {msd_path}")
-    
-    # Check Spotify Tracks path provided is valid
-    if not os.path.exists(spotify_tracks_file_path):
-        raise FileNotFoundError(f"Error: could not find directory {msd_path}")
-
-    # FOR DEBUGGING
-    counter = 1
-
-    # Get data
-    if len(os.listdir(msd_path)) == 0:
-        raise FileNotFoundError(f"Error: could not find dataset --- {msd_path} is empty")
-    # Iterate through directory provided
-    for path_dir_1 in sorted(os.listdir(msd_path)):
-        dir_path_1 = os.path.join(msd_path, path_dir_1)
-        if len(os.listdir(dir_path_1)) == 0:
-            raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
-        # Iterate through subdirectories
-        for path_dir_2 in sorted(os.listdir(dir_path_1)):
-            dir_path_2 = os.path.join(dir_path_1, path_dir_2)
-            if len(os.listdir(dir_path_2)) == 0:
-                raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_2} is empty")
-            # Iterate through subsubdirectories
-            for path_dir_3 in sorted(os.listdir(dir_path_2)):
-                dir_path_3 = os.path.join(dir_path_2, path_dir_3)
-                # Get files
-                for file_name in sorted(os.listdir(dir_path_3)):
-                    file_path = os.path.join(dir_path_3, file_name)
-                    with tables.open_file(file_path, mode='r') as h5:
-                        # Get values for dataset
-                        num_songs = h5.root.metadata.songs.nrows
-                        for i in range(num_songs):
-                            # Get values from MSD
-                            track_id = str(h5.root.metadata.songs.cols.song_id[i])
-                            track_name = str(h5.root.metadata.songs.cols.title[i])[2:-1]
-                            artists = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1]
-                            if artists.__contains__(',') or artists.__contains__(';'):
-                                input(f"Multiple artists {artists}... ")
-                            year = h5.root.musicbrainz.songs.cols.year[i]
-                            key = h5.root.analysis.songs.cols.key[i]
-                            mode = h5.root.analysis.songs.cols.mode[i]
-                            tempo = h5.root.analysis.songs.cols.tempo[i]
-                            time_signature = h5.root.analysis.songs.cols.time_signature[i]
-                            timbre_values = None
-                            if h5.root.analysis.songs.nrows == i + 1:
-                                timbre_values = h5.root.analysis.segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : , :]
-                            else:
-                                timbre_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : h5.root.analysis.songs.cols.idx_segments_timbre[i+1], :]
-
-                            # Get values from Spotify Tracks Dataset
-                            # genre = None
-                            danceability = None
-                            energy = None
-                            loudness = None
-                            instrumentalness = None
-                            valence = None
-
-                            # Iterate through dataset
-                            found = False
-                            for chunk in pd.read_csv(spotify_tracks_file_path, chunksize=1000):
-                                for row in chunk.itertuples(index=True):
-                                    row_song_name = str(row.track_name).lower()
-                                    row_song_artist = str(row.artists).lower()
-                                    curr_song_name = track_name.lower()
-                                    curr_song_artist = artists.lower()
-                                    if row_song_name == curr_song_name: # TODO: consider using __contains__ both ways
-                                        if row_song_artist == curr_song_artist:
-                                            # Get values
-                                            danceability = row.danceability
-                                            energy = row.energy
-                                            instrumentalness = row.instrumentalness
-                                            loudness = row.loudness
-                                            valence = row.valence
-                                            # genre = row.track_genre
-
-                                            # Update found and break
-                                            found = True
-                                            break
-                                    if found:
-                                        break
-
-                            # Write to CSV if corresponding entry is found in Spotify Tracks Dataset
-                            if found:
-                                print(f"\n{counter}: Found entry for {track_name}\n")
-                                with open(output_path, 'a') as f:
-                                    writer = csv.writer(f, delimiter=',', quotechar='|')
-                                    writer.writerow([
-                                        track_id, track_name, artists, year, key, 
-                                        mode, tempo, time_signature, danceability, energy, 
-                                        loudness, valence, instrumentalness
-                                    ])
-                            else:
-                                print(f"{counter}: No entry found for {track_name}")
-                            counter += 1
-
 def is_same_artists(song_1_artists, song_2_artists):
     # Check every element of song_1_artists (A) are in song_2_artists (B)
     is_a_match_b = True
@@ -141,66 +41,6 @@ def is_same_artists(song_1_artists, song_2_artists):
     
     # Return true
     return True
-
-def find_tracks_in_smp(dataset_path, smp_path, output_path, copy_path):
-    # FOR DEBUGGING
-    counter = 1
-    success_count = 0
-    fail_count = 0
-
-    trainer = Trainer(
-        training_network=NeuralNetwork(202, 202),
-        initial_lr=0.001,
-        final_lr=0.0001,
-        num_epochs=120,
-        dataset_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset',
-        output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2'
-    )
-
-    # Get data
-    file_paths = trainer.get_file_paths()
-    counter = 0
-    for file_path in file_paths:
-        # get song data
-        print()
-        print(f"Trying to find song {os.path.basename(file_path)}")
-        song = trainer.get_song_data_from_file(file_path)
-        song_id = song.song_id
-        song_name = song.song_name
-        artists = song.artists
-
-        # Iterate through SMP dataset, which is JSON files
-        start_time = time.time()
-        is_found = False
-        for file_name in os.listdir(smp_path):
-            # get data from file
-            smp_file_path = os.path.join(smp_path, file_name)
-            file_data = None
-            with open(smp_file_path, 'r+') as f:
-                file_data = json.load(f)
-            
-            if file_data:
-                for playlist in file_data['playlists']: # iterate through playlists
-                    for track in playlist['tracks']: # iterate through tracks in a playlist
-                        # check if song name and artists match
-                        curr_song_name = track['track_name']
-                        curr_artists = [track['artist_name']]
-                        if curr_song_name.lower() == song_name.lower():
-                            if is_same_artists(curr_artists, artists):
-                                print(f"{counter}: Found song {song_name} in playlist {playlist['pid']}")
-                                if not is_found: # only copy file once if a match was found
-                                    shutil.copy(file_path, copy_path)
-                                if not os.path.exists(os.path.join(output_path, playlist['pid'], f'{playlist['pid']}.json')): # only copy the JSON file once
-                                    with open(os.path.join(output_path, playlist['pid'], f'{playlist['pid']}.json'), 'w+') as f2:
-                                        json.dump(file_data, f2)
-                                is_found = True
-                                break
-
-        if not is_found:
-            print(f"{counter}: Could not find song {song_name}")
-        counter += 1
-
-        print(f"Time elapsed: {time.time() - start_time} seconds")
 
 def create_hdf5_extended_msd(msd_path, csv_path, output_path):
     # Check MSD path provided is valid
@@ -323,6 +163,46 @@ def create_hdf5_extended_msd(msd_path, csv_path, output_path):
     print(f"Number of tracks successfully created: {success_count}")
     print(f"Number of failures when attempting to create a track: {fail_count}")
 
+def create_hdf5_with_chroma_features(msd_path, curr_dataset_path, output_path):
+    msd_trainer = Trainer(
+        training_network=NeuralNetwork(202, 202),
+        initial_lr=0.001,
+        final_lr=0.0001,
+        num_epochs=120,
+        dataset_path=msd_path,
+        output_folder=output_path
+    )
+    msd_files = msd_trainer.get_file_paths()
+    msd_files = sorted(msd_files)
+    for msd_file in msd_files:
+        with tables.open_file(msd_file, mode='r') as h5:
+            # Get values for dataset
+            num_songs = h5.root.metadata.songs.nrows
+            for i in range(num_songs):
+                song_id = str(h5.root.metadata.songs.cols.song_id[i])[2:-1]
+                print(song_id)
+
+                potential_song_path = os.path.join(curr_dataset_path, song_id[2], song_id[3], song_id[4], f"{song_id}.h5")
+                potential_path_exists = os.path.exists(potential_song_path)
+                successfully_created = False
+                if potential_path_exists:
+                    track = msd_trainer.get_song_data_from_file(potential_song_path)
+                    chroma_values = None
+                    if h5.root.analysis.songs.nrows == i + 1:
+                        chroma_values = h5.root.analysis.segments_pitches[h5.root.analysis.songs.cols.idx_segments_pitches[i] : , :]
+                    else:
+                        chroma_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_pitches[i] : h5.root.analysis.songs.cols.idx_segments_pitches[i+1], :]
+                    track.chroma_values = chroma_values
+
+                    track.song_id = song_id
+
+                    successfully_created = create_track_file(output_path, track)
+                    if successfully_created:
+                        print("Successfully created track and merged the data")
+
+                if not potential_path_exists or not successfully_created:
+                    print(f"Could not find/could not create file for song with ID {song_id}")
+
 def create_test_dataset(dataset_path, csv_path, output_path):
     # Get dataset file paths
     trainer = Trainer(
@@ -374,23 +254,6 @@ def create_test_dataset(dataset_path, csv_path, output_path):
 
 
 if __name__ == '__main__':
-    create_csv_dataset = input("Would you like to create a CSV merged dataset? (y/n) ")
-    if create_csv_dataset.lower() == 'y':
-        rewrite = input("Would you like to write over merged_dataset (y/n)? ")
-        if rewrite.lower() == 'y':
-            with open('/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MergedDataset/merged_dataset.csv', 'w') as f:
-                writer = csv.writer(f, delimiter=',', quotechar='|')
-                writer.writerow([
-                                    'track_id', 'track_name', 'artists', 'year', 'key', 
-                                    'mode', 'tempo', 'time_signature', 'danceability', 'energy', 
-                                    'loudness', 'valence', 'instrumentalness'
-                                ]) 
-        dataset_gen = merge_msd_with_csv(
-            msd_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSubset',
-            spotify_tracks_file_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MergedDataset/extracted_data.csv',
-            output_path='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MergedDataset/merged_dataset.csv'
-        )
-
     create_hdf5_dataset = input("Would you like to create a HDF5 merged dataset? (y/n) ")
     if create_hdf5_dataset.lower() == 'y':
         msd_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongDataset'
@@ -408,4 +271,14 @@ if __name__ == '__main__':
             dataset_path=dataset_path,
             csv_path=csv_path,
             output_path=output_path
+        )
+
+    if input("Would you like to add Chroma features to your dataset? (y/n) ").lower() == 'y':
+        msd_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongDataset'
+        curr_dataset_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset'
+        output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/ProjectDataset'
+        create_hdf5_with_chroma_features(
+            msd_path,
+            curr_dataset_path,
+            output_path
         )

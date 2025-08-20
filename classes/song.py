@@ -20,7 +20,8 @@ class Song():
         loudness: float,
         valence: float,
         instrumentalness: float,
-        timbre_values,
+        timbre_values: np.ndarray = np.array([]),
+        chroma_values: np.ndarray = np.array([]),
         genre: str = 'electronic',
         release_year: int = 2025,
         song_id=None,
@@ -48,6 +49,7 @@ class Song():
         self.tempo = tempo
         self.time_signature = time_signature
         self.timbre_values = timbre_values
+        self.chroma_values = chroma_values
 
         # Values which are not necessary to set
         self.audio_file_path = audio_file_path
@@ -58,11 +60,16 @@ class Song():
     def get_nn_input(self):
         nn_input = []
 
-        # Add first 16 timbre values
-        if len(self.timbre_values) < 16:
-            raise ValueError("Error: not enough timbre values to use for embedding")
-        for mfcc_value in self.timbre_values[:16]:
-            nn_input.extend(mfcc_value) 
+        # Add first 16 timbre or chroma values
+        audio_features = None
+        if not self.chroma_values is None:
+            audio_features = self.chroma_values
+        else:
+            audio_features = self.timbre_values
+        if len(audio_features) < 16:
+            raise ValueError("Error: not enough audio feature values to use for embedding")
+        for feature in audio_features[:16]:
+            nn_input.extend(feature) 
         # + LENGTH 192
 
         # Get key 3D vector --- convert from spherical coordinates to cartesian with theta (key angle), phi (mode angle+), and r = 1 as params

@@ -57,6 +57,7 @@ def create_song_file(h5filename: str, title='H5 Song File', force=False, complev
     # create arrays
     group = h5.root.analysis
     h5.create_earray(group, 'segments_timbre', tables.Float64Atom(shape=()), (0, 12), 'array of timbre of segments (MFCC-like)')
+    h5.create_earray(group, 'segments_pitches', tables.Float64Atom(shape=()), (0, 12), 'array of chroma features')
 
     # close it, done
     h5.close()
@@ -98,6 +99,8 @@ def fill_hdf5_from_track(h5, track: Song):
     group = h5.root.analysis
 
     group.segments_timbre.append(np.array(track.timbre_values))
+    group.segments_pitches.append(np.array(track.chroma_values))
+    analysis.cols.idx_segments_pitches[0] = 0
     analysis.cols.idx_segments_timbre[0] = 0
 
     analysis.flush()
