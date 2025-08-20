@@ -6,7 +6,7 @@ import json
 # External libraries
 import psycopg2
 from fastapi import FastAPI, HTTPException, status, File, UploadFile, Form
-from fastapi.responses import Response, JSONResponse
+from fastapi.responses import Response, JSONResponse, FileResponse
 import uvicorn
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -504,6 +504,39 @@ def get_basic_track_info(track_id):
             "genre": genre
         }
     )
+
+@app.get('/get-audio-file/{track_id}')
+def get_audio_file(track_id: str):
+    # Check if song exists
+    conn = get_conn()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            '''
+            SELECT 
+                audio_file_path
+            FROM
+                track
+            WHERE
+                track_id = %s;
+            ''',
+            (track_id,)
+        )
+        record = cursor.fetchone()
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error: could not perform query to find track with given track ID")
+    finally:
+        cursor.close()
+        conn.close()
+
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Error: could not find song with given track ID")
+    
+    # If file exists, return it
+    audio_file_path = record[0]
+    return FileResponse(audio_file_path)
+
 
 @app.get('/end-set')
 def end_set():
