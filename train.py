@@ -66,19 +66,24 @@ if __name__ == '__main__':
         nn.append_layer(layer_8)
 
         # Create trainer object
+        output_folder = input("Please input the folder you would like to save your models to: ")
         trainer = Trainer(
             training_network=nn,
             initial_lr=0.001,
-            final_lr=0.0001,
-            momentum=0.9,
+            final_lr=0.00025,
             num_epochs=150,
+            momentum=0.9,
+            l2_regularization_lambda=0.001,
             dataset_path='./ProjectDataset',
-            output_folder='./networks/experiment_2'
+            output_folder='./networks/experiment_3'
         )
 
-        trainer.train_model()
+        if input(f"Are you sure you would like your model to be saved to {output_folder}? (y/n) ").lower() == 'y':
+            trainer.train_model()
+        else:
+            print("Aborting training!")
 
-    if input("Would you like to extract the encoder section of a model? (y/n) ").lower() == 'y':
+    if input("\nWould you like to extract the encoder section of a model? (y/n) ").lower() == 'y':
         nn = NeuralNetwork.load_network('./networks/encoder/encoder.pkl')
         encoder = NeuralNetwork(202, 64)
         for i in range(int(nn.get_num_layers() / 2)):

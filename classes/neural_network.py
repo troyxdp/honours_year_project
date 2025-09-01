@@ -265,8 +265,9 @@ class NeuralNetwork():
             x = layer.get_output()
         self._output = x
 
-    # Made with assistance from http://neuralnetworksanddeeplearning.com/chap2.html
-    def back_propogate(self, lr: float, error_prime: np.ndarray,  momentum=None, clip_score=1.0):
+    # Made with assistance from http://neuralnetworksanddeeplearning.com/chap2.html for overall algorithm
+    # Made with assistance from https://neuralthreads.medium.com/l1-l2-regularization-adding-penalties-to-the-loss-function-b5c330d30b3f for regularization
+    def back_propogate(self, lr: float, error_prime: np.ndarray,  momentum=None, clip_score=1.0, l2_lambda=0):
         # Get first delta value
         delta = error_prime * self._layers[-1].apply_activation_function_dx() # multiply gradient of cost function with derivative of activation function applied to z values
         
@@ -276,25 +277,28 @@ class NeuralNetwork():
         self._layers[-1].update_layer(weights_grad, bias_grad, lr, momentum, clip_score)
 
         # Propogate through the other layers from the 2nd last hidden layer to the 1st hidden layer at index 0 of self._layers
+        # . is dot product, * is element-wise (hadamard) product
         for l in range(len(self._layers) - 2, -1, -1):
             # Get each of the different layers
-            curr_layer = self._layers[l]
-            next_layer = self._layers[l+1]
+            curr_layer : FeedForwardLayer = self._layers[l]
+            next_layer : FeedForwardLayer = self._layers[l+1]
 
             # Get s_l'(z_l) where s_l is activation function of layer l, the current layer
             act_fn_dx = curr_layer.apply_activation_function_dx()
 
-            # Get delta_l = ((W_l+1)^T . delta_(l+1)) * s_l'(z_l) where W_l+1 is weights of next layer 
+            # Get delta_l = dC/dZ_l = ((W_l+1)^T . delta_(l+1)) * s_l'(z_l) where W_l+1 is weights of next layer 
             delta = np.dot(next_layer.get_weights().transpose(), delta) * act_fn_dx
 
-            # Get gradient for bias vector and weights matrix
-            # Bias gradient is just delta
-            bias_grad = delta
+            # Get gradient for bias vector
+            bias_grad = delta # Bias gradient is just delta
+            bias_update = bias_grad + 2 * l2_lambda * curr_layer.get_biases() # apply L2 regularization
+
             # Weights gradient is delta . a_l-1 where a_l-1 is the activated output of the previous layer/input of current layer
             weights_grad = np.outer(delta, curr_layer.get_input()) # curr_layer.get_input() returns output of previous layer
+            weights_update = weights_grad + 2 * l2_lambda * curr_layer.get_weights() # apply L2 regularization
 
             # Update current layer
-            curr_layer.update_layer(weights_grad, bias_grad, lr, momentum, clip_score)
+            curr_layer.update_layer(weights_update, bias_update, lr, momentum, clip_score)
 
     def save_network(self, file_path: str):
         # Check that there are no NaN values in any of the layers

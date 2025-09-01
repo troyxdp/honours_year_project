@@ -53,10 +53,11 @@ class Trainer():
         checkpoint_epoch=10,
         train_percentage=80,
         val_percentage_of_train=20,
-        dataset_path=None,
         momentum=None, 
-        regularization_lambda=None,
-        dropout_rate=None
+        l2_regularization_lambda=None,
+        dropout_rate=None,
+        clip_score=1.0,
+        dataset_path=None,
     ):
         # Initialize network
         self.training_network = training_network
@@ -67,8 +68,9 @@ class Trainer():
         self.final_lr = final_lr
         self.num_epochs = num_epochs
         self.momentum = momentum
-        self.regularization_lambda = regularization_lambda
+        self.l2_regularization_lambda = l2_regularization_lambda
         self.dropout_rate = dropout_rate
+        self.clip_score = clip_score
 
         # Initialize training statistics
         self.model_statistics_per_epoch = []
@@ -331,7 +333,7 @@ class Trainer():
 
                 # backpropogate
                 error_prime = np.subtract(output_value, input_value)
-                self.training_network.back_propogate(lr=lr, error_prime=error_prime, momentum=self.momentum)
+                self.training_network.back_propogate(lr=lr, error_prime=error_prime, momentum=self.momentum, clip_score=self.clip_score, l2_lambda=self.l2_regularization_lambda)
 
                 num_train_samples += 1
             
