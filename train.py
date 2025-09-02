@@ -75,7 +75,7 @@ if __name__ == '__main__':
             momentum=0.9,
             l2_regularization_lambda=0.001,
             dataset_path='./ProjectDataset',
-            output_folder='./networks/experiment_3'
+            output_folder=output_folder,
         )
 
         if input(f"Are you sure you would like your model to be saved to {output_folder}? (y/n) ").lower() == 'y':

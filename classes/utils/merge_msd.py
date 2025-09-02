@@ -281,17 +281,6 @@ if __name__ == '__main__':
 
         create_hdf5_extended_msd(msd_path, csv_path, output_path)
 
-    
-    if input("Would you like to create a test dataset? (y/n) ").lower() == 'y':
-        dataset_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset'
-        csv_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/plays_data/train_triplets.csv'
-        output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/songs'
-        create_test_dataset(
-            dataset_path=dataset_path,
-            csv_path=csv_path,
-            output_path=output_path
-        )
-
     if input("Would you like to add Chroma features to your dataset? (y/n) ").lower() == 'y':
         msd_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongDataset'
         curr_dataset_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/MillionSongSpotifyTracksDataset'
@@ -300,14 +289,4 @@ if __name__ == '__main__':
             msd_path,
             curr_dataset_path,
             output_path
-        )
-
-    if input("Would you like to move the test dataset files to a different folder? (y/n) ").lower() == 'y':
-        full_dataset_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/ProjectDataset'
-        entp_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/song_play_data'
-        output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/test_songs'
-        move_songs_to_test_folder(
-            full_dataset_path=full_dataset_path, 
-            entp_path=entp_path, 
-            output_path=output_path
         )
