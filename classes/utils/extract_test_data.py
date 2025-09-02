@@ -144,43 +144,54 @@ def extract_song_links(test_dataset_path, output_path):
     # Create number of links tracker
     num_links_per_file = {}
     for file_path in file_paths:
-        num_links_per_file[file_path] = 0
+        file_name = os.path.splitext(os.path.basename(file_path))[0]
+        num_links_per_file[file_name] = 0
 
     # Loop through file paths - OUTER LOOP
     print()
     for o, file_path_o in enumerate(file_paths):
         print(f"Searching for links for file {file_path_o}...")
         df_o = pd.read_csv(file_path_o, delimiter=',')
+
+        # Get base name and file name from file_path_o
+        basename_o = os.path.basename(file_path_o)
+        file_name_o = os.path.splitext(basename_o)[0]
         
         # Loop through all file paths after file_path_o - INNER LOOP
         for file_path_i in file_paths[o+1:]:
             df_i = pd.read_csv(file_path_i, delimiter=',')
+
+            # Get base name and file name for file_path_i
+            basename_i = os.path.basename(file_path_i)
+            file_name_i = os.path.splitext(basename_i)[0]
+            
             # Merge the dataframes
             merged_df = df_o.merge(df_i, left_on='user_id', right_on='user_id')
+
             # Check if there is any intersection
             if len(merged_df) > 0:
-                # Get file and dir paths
-                basename_o = os.path.basename(file_path_o)
-                basename_i = os.path.basename(file_path_i)
+                # Get potential file and dir paths that may or may not already exist
                 potential_dir_path_o = os.path.join(output_path, basename_o[2], basename_o[3], basename_o[4])
                 potential_file_path_o = os.path.join(potential_dir_path_o, f'{os.path.splitext(basename_o)[0]}.txt')
                 potential_dir_path_i = os.path.join(output_path, basename_i[2], basename_i[3], basename_i[4])
                 potential_file_path_i = os.path.join(potential_dir_path_i, f'{os.path.splitext(basename_i)[0]}.txt')
+
                 # Check if dir paths exist and make them if they don't
                 if not os.path.isdir(potential_dir_path_o):
                     os.makedirs(potential_dir_path_o)
                 if not os.path.isdir(potential_dir_path_i):
                     os.makedirs(potential_dir_path_i)
+
                 # Copy files (if they don't exist)
                 with open(potential_file_path_o, 'a') as f:
-                    f.writelines([file_path_i, '\n'])
-                    num_links_per_file[file_path_o] += 1
+                    f.writelines([file_name_i, '\n'])
+                    num_links_per_file[file_name_o] += 1
                 with open(potential_file_path_i, 'a') as f:
-                    f.writelines([file_path_o, '\n'])
-                    num_links_per_file[file_path_i] += 1
+                    f.writelines([file_name_o, '\n'])
+                    num_links_per_file[file_name_i] += 1
         
         # Print the number of links found for a file
-        print(f"Number of links found for file: {num_links_per_file[file_path_o]}")
+        print(f"Number of links found for file: {num_links_per_file[file_name_o]}")
         print()
 
     # Convert num_links to lists

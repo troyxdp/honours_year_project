@@ -8,6 +8,7 @@ class Recommender():
     
     def __init__(
         self,
+        traversal_algorithm:str="greedy_nearest_neighbour",
     ):
         # set values
         self._selected_tracks_info = [] # list of track IDs for the songs to be played in the set
@@ -17,6 +18,7 @@ class Recommender():
         self._seed_track_info = None
         self._played_tracks = [] # list of tracks that have been played in the set
         self._recommendations = [] # planned ordered list of tracks to play in the set. They are also all of the unplanned tracks
+        self._traversal_algorithm = traversal_algorithm
 
 
     # SETTER METHODS
@@ -85,6 +87,21 @@ class Recommender():
 
 
     # GETTER METHODS
+    def get_track(self, track_id):
+        # Go through played tracks
+        for track in self._played_tracks:
+            if track[0] == track_id:
+                return track
+        # Go through unplayed tracks (recommendations)
+        for track in self._recommendations:
+            if track[0] == track_id:
+                return track
+        # Check seed track
+        if track_id == self._seed_track_info[0]:
+            return self._seed_track_info
+        # Not found - raise exception
+        raise Exception("Error: could not find track with given ID")
+
     def get_selected_track_ids(self):
         return [selected_track[0] for selected_track in self._selected_tracks_info]
 
@@ -159,7 +176,12 @@ class Recommender():
             raise ValueError("Error: could not find current track data")
         
         # generate recommendations
-        self._recommendations = self._get_greedy_nearest_neighbour_path(curr_track_info, unplayed_tracks.copy())
+        if self._traversal_algorithm == 'greedy_nearest_neighbour':
+            self._recommendations = self._get_greedy_nearest_neighbour_path(curr_track_info, unplayed_tracks.copy())
+        elif self._traversal_algorithm == 'optimal_path':
+            self._recommendations = self._get_optimal_path(curr_track_info, unplayed_tracks.copy())
+        else:
+            raise Exception("Error: traversal algorithm provided is invalid. Choose either 'greedy_nearest_neighbour' or 'optimal_path', or leave blank, which defaults to 'greedy_nearest_neighbour'")
 
     # method to initialize recommendations
     def init_recommendations(self): 
@@ -209,6 +231,10 @@ class Recommender():
             sigma += (xi - yi) ** 2
         return np.sqrt(sigma)
     
+    def _get_optimal_path(self, curr_track: tuple, tracks: list):
+        # TODO: implement
+        return random.shuffle(tracks)
+
 if __name__ == '__main__':
     curr_track = ('a', np.array([1, 1]))
     tracks = [
