@@ -27,6 +27,8 @@ class Song():
         song_id=None,
         audio_file_path:str=None,
         embedding=None,
+        use_chroma_values: bool = True,
+        use_timbre_values: bool = False,
     ):
         # Values which are necessary to set
         self.song_id = song_id
@@ -57,20 +59,22 @@ class Song():
         # Values which have to be set using methods
         self.embedding = embedding
 
+        # Set whether using chroma, timbre, or both sets of values
+        self.use_chroma = use_chroma_values
+        self.use_timbre = use_timbre_values
+
     def get_nn_input(self):
         nn_input = []
 
-        # Add first 16 timbre or chroma values
-        audio_features = None
-        if not self.chroma_values is None:
-            audio_features = self.chroma_values
-        else:
-            audio_features = self.timbre_values
-        if len(audio_features) < 16:
-            raise ValueError("Error: not enough audio feature values to use for embedding")
-        for feature in audio_features[:16]:
-            nn_input.extend(feature) 
-        # + LENGTH 192
+        # Add chroma and/or timbre values to nn input
+        if self.use_chroma:
+            # + LENGTH 192
+            for chroma in self.chroma_values[:16]:
+                nn_input.extend(chroma)
+        if self.use_timbre:
+            # + LENGTH 192
+            for timbre in self.timbre_values[:16]:
+                nn_input.extend(timbre)
 
         # Get key 3D vector --- convert from spherical coordinates to cartesian with theta (key angle), phi (mode angle+), and r = 1 as params
         key, mode = self.get_camelot_wheel_value()
@@ -95,10 +99,6 @@ class Song():
         x, y = np.cos(normalized_bpm * 2 * np.pi), np.sin(normalized_bpm * 2 * np.pi)
         nn_input.extend([x, y]) # + LENGTH 2
 
-        # TODO: add genre handling - the following is temporary
-        # genre_encoding = self.get_genre_encoding() 
-        # nn_input.extend(genre_encoding) # + LENGTH 7 --- 125 total genres, encoding each genre as a binary number
-
         # Add the rest of the features (assuming they are all normalized)
         nn_input.extend([
             self.danceability,
@@ -108,7 +108,7 @@ class Song():
             self.instrumentalness
         ]) # + LENGTH 5
 
-        return np.array(nn_input) # TOTAL LENGTH 209 (with genre) 202 (without genre)
+        return np.array(nn_input) # TOTAL LENGTH 202 (with chroma values XOR timbre values), 394 (with chroma values AND timbre values), 10 (without chroma or timbre values)
         
     # def get_genre_encoding(self):
     #     # TODO: implement a genre encoding

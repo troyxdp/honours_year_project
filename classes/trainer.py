@@ -88,16 +88,22 @@ class Trainer():
         file_paths = []
         for path_dir_1 in os.listdir(self.dataset_path):
             dir_path_1 = os.path.join(self.dataset_path, path_dir_1)
+            if not os.path.isdir(dir_path_1):
+                continue
             if len(os.listdir(dir_path_1)) == 0:
                 raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
             # Iterate through subdirectories
             for path_dir_2 in os.listdir(dir_path_1):
                 dir_path_2 = os.path.join(dir_path_1, path_dir_2)
+                if not os.path.isdir(dir_path_2):
+                    continue
                 if len(os.listdir(dir_path_2)) == 0:
                     raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_2} is empty")
                 # Iterate through subsubdirectories
                 for path_dir_3 in os.listdir(dir_path_2):
                     dir_path_3 = os.path.join(dir_path_2, path_dir_3)
+                    if not os.path.isdir(dir_path_3):
+                        continue
                     # Get files
                     for file_name in os.listdir(dir_path_3):
                         file_paths.append(os.path.join(dir_path_3, file_name))

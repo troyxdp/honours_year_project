@@ -84,9 +84,22 @@ if __name__ == '__main__':
             print("Aborting training!")
 
     if input("\nWould you like to extract the encoder section of a model? (y/n) ").lower() == 'y':
-        nn = NeuralNetwork.load_network('./networks/encoder/encoder.pkl')
+        # Get path to neural network to turn into an encoder
+        nn_path = input("Please input the path to the neural network weights: ")
+        if not os.path.exists(nn_path):
+            print("Error: could not find network at path provided")
+            exit(0)
+
+        # Load network and get encoder section
+        nn : NeuralNetwork = NeuralNetwork.load_network(nn_path)
         encoder = NeuralNetwork(202, 64)
         for i in range(int(nn.get_num_layers() / 2)):
             encoder.append_layer(nn.get_layer(i))
         print(encoder)
-        encoder.save_network(os.path.join('./networks/encoder', 'encoder.pkl'))
+
+        # Save encoder section
+        nn_save_path = input("Please input the directory you would like to save the encoder to: ")
+        if not os.path.isdir(os.path.split(nn_save_path)[0]):
+            print("Error: could not find directory specified for saving")
+            exit(0)
+        encoder.save_network(os.path.join(nn_save_path, 'encoder.pkl'))
