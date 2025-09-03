@@ -291,11 +291,11 @@ class NeuralNetwork():
 
             # Get gradient for bias vector
             bias_grad = delta # Bias gradient is just delta
-            bias_update = bias_grad + 2 * l2_lambda * curr_layer.get_biases() # apply L2 regularization
+            bias_update = bias_grad + 2 * l2_lambda * curr_layer.get_biases() # apply L2 regularization - reduces overfitting and complexity of model by shrinking weights towards 0
 
             # Weights gradient is delta . a_l-1 where a_l-1 is the activated output of the previous layer/input of current layer
             weights_grad = np.outer(delta, curr_layer.get_input()) # curr_layer.get_input() returns output of previous layer
-            weights_update = weights_grad + 2 * l2_lambda * curr_layer.get_weights() # apply L2 regularization
+            weights_update = weights_grad + 2 * l2_lambda * curr_layer.get_weights() # apply L2 regularization - reduces overfitting and complexity of model by shrinking weights towards 0
 
             # Update current layer
             curr_layer.update_layer(weights_update, bias_update, lr, momentum, clip_score)

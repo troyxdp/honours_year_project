@@ -30,31 +30,12 @@ def test_network(
     test_dataset_files = trainer.get_file_paths()
     test_dataset_files = sorted(test_dataset_files)
 
-    # Get song plays dataset files with plays data
-    trainer = Trainer(
-        training_network=NeuralNetwork(202, 202),
-        initial_lr=0.001,
-        final_lr=0.0001,
-        num_epochs=120,
-        dataset_path=song_plays_dataset_path,
-        output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2'
-    )
-    song_plays_files = trainer.get_file_paths()
-    song_plays_files = sorted(song_plays_files)
-
-    # Get song links dataset files with info on what songs have both been played by at least one user
-    trainer = Trainer(
-        training_network=NeuralNetwork(202, 202),
-        initial_lr=0.001,
-        final_lr=0.0001,
-        num_epochs=120,
-        dataset_path=song_links_test_dataset_path,
-        output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2'
-    )
-    song_links_files = trainer.get_file_paths()
-    song_links_files = sorted(song_links_files)
+    file_names = [os.path.splitext(os.path.basename(track))[0] for track in test_dataset_files]
+    song_plays_files = [os.path.join(song_plays_dataset_path, file_name[2], file_name[3], file_name[4], f'{file_name}.csv') for file_name in file_names]
+    song_links_files = [os.path.join(song_links_test_dataset_path, file_name[2], file_name[3], file_name[4], f'{file_name}.txt') for file_name in file_names]
 
     # Test for each k value
+    precision_scores = []
     for k in k_values:
         # List of k selected tracks and number of selected tracks
         selected_tracks = [] # List of song IDs selected
@@ -242,7 +223,7 @@ if __name__ == '__main__':
     song_plays_dataset_path = 'test_dataset/test_songs_with_links'
     song_links_test_dataset_path = 'test_dataset/song_links_dataset'
     low_k = 10
-    high_k = 101 # above 801 and it takes way to long to generate a list. Up to this value is relatively quick
+    high_k = 201 # above 801 and it takes way to long to generate a list. Up to this value is relatively quick
     k_stride = 10
     k_values = range(low_k, high_k, k_stride)
     

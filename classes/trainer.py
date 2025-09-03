@@ -106,6 +106,10 @@ class Trainer():
                         continue
                     # Get files
                     for file_name in os.listdir(dir_path_3):
+                        if os.path.splitext(file_name)[1] == '.h5':
+                            song = self.get_song_data_from_file(os.path.join(dir_path_3, file_name))
+                            if self.is_missing_values(song):
+                                continue
                         file_paths.append(os.path.join(dir_path_3, file_name))
         return file_paths
     
