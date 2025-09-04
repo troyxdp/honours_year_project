@@ -200,6 +200,9 @@ def generate_random_traversal_of_linked_songs(song_links_files: list, k: int) ->
 
         num_selected = len(selected_tracks)
 
+    # Return tracks that were selected
+    return selected_tracks
+
 
 # Test a given neural network - get precision, generation time, and NCG scores for different k values
 def test_network(
@@ -413,6 +416,7 @@ def test_network(
     df = pd.DataFrame(gen_times_dict)
     df.to_csv(os.path.join(output_path, 'generation_times.csv'))
 
+    # Do the tings for the NCG values (if they are there)
     ncg_k_values = list(range(low_k, ncg_max_k+1, k_step))
     if ncg_k_values:
         # Display the statistics for NCG
@@ -429,6 +433,16 @@ def test_network(
         }
         df = pd.DataFrame(ncg_dict)
         df.to_csv(os.path.join(output_path, 'ncg_scores.csv'))
+
+    # Write the testing hyperparameters to a text file
+    with open(os.path.join(output_path, 'testing_hyperparameters.txt'), 'w') as f:
+        # K information
+        f.write(f"Low K: {low_k}\n")
+        f.write(f"High K: {high_k}\n")
+        f.write(f"K Step Size: {k_step}\n\n")
+        # NCG information
+        f.write(f"Did NCG? {ncg_max_k >= low_k}")
+        f.write(f"NCG Max K: {ncg_max_k}\n")
 
 
 
@@ -449,7 +463,12 @@ if __name__ == '__main__':
     k_stride = 10
     ncg_max_k = 0
     k_values = range(low_k, high_k, k_stride)
-    output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/Statistics/Raw Data/Experiment 2/Test 1'
+    output_path = input("Please input the output directory for the CSV statistics files: ")
+
+    # Check if output_path exists
+    if not os.path.isdir(output_path):
+        print("Error: could not find output path")
+        exit(0)
     
     # Test the network
     test_network(
