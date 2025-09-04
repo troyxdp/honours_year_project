@@ -204,7 +204,27 @@ def extract_song_links(test_dataset_path, output_path):
     df = pd.DataFrame(num_links)
     df.to_csv(os.path.join(output_path, 'number_of_links_per_file.csv'))
 
+def remove_uncorresponding_files(csv_dataset_path, h5_dataset_path):
+    # Get dataset file paths
+    trainer = Trainer(
+        training_network=NeuralNetwork(202, 202),
+        initial_lr=0.001,
+        final_lr=0.0001,
+        num_epochs=120,
+        dataset_path=csv_dataset_path,
+        output_folder='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2'
+    )
+    file_paths = trainer.get_file_paths()
+    file_paths = sorted(file_paths)
 
+    for file_path in file_paths:
+        file_name = os.path.splitext(os.path.basename(file_path))[0]
+        corr_file_path = os.path.join(h5_dataset_path, file_name[2], file_name[3], file_name[4], f"{file_name}.h5")
+        if not os.path.exists(corr_file_path):
+            print("Deleting...")
+            os.remove(file_path)
+
+    
 
 if __name__ == '__main__':
     # Create test dataset
@@ -221,7 +241,7 @@ if __name__ == '__main__':
     # Move song files with corresponding test CSV files
     if input("Would you like to move the test dataset files to a different folder? (y/n) ").lower() == 'y':
         full_dataset_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/ProjectDataset'
-        entp_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/song_play_data'
+        entp_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/test_songs_with_links'
         output_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/test_songs'
         move_songs_to_test_folder(
             full_dataset_path=full_dataset_path, 
@@ -245,4 +265,12 @@ if __name__ == '__main__':
         extract_song_links(
             test_dataset_path=test_dataset_path,
             output_path=output_path
+        )
+
+    if input("Would you like to remove files from datasets that do not correspond? (y/n) ").lower() == 'y':
+        csv_dataset_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/song_links_dataset'
+        h5_dataset_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/test_songs'
+        remove_uncorresponding_files(
+            csv_dataset_path=csv_dataset_path,
+            h5_dataset_path=h5_dataset_path
         )

@@ -72,7 +72,7 @@ def held_karp(dists):
             optimal_cost = cost
             arg_min_k = k
 
-    # Find optimal path
+    # Find optimal path by backtracking through parents
     # Made with assistance from https://www.youtube.com/watch?v=-JjA4BLQyqE
     path = []
     subset = tuple(cities[1:])
@@ -110,7 +110,7 @@ if __name__ == '__main__':
         print("Optimal path:", path)
         print("Optimal path length:", optimal_cost)
         print("Time elapsed:", end_time, " seconds")
-        
+
     sizes = list(range(min_size, max_size+1))
     plt.plot(sizes, times)
     plt.xlabel("Number of vertices in graph")
