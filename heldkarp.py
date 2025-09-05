@@ -46,7 +46,7 @@ def held_karp(dists):
         for S in subsets:
             # Go through each end destination k
             for k in S:
-                # Find the path of minimum cost (or rather set of vertices in the path) that ends at k
+                # Find the path of minimum cost (or rather set of vertices in the path) that ends at k with second last vertex m
                 S_minus_k = [i for i in S if i != k]
                 S_minus_k = tuple(S_minus_k)
                 min_cost = np.inf

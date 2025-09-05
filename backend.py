@@ -19,7 +19,10 @@ from classes.recommender import Recommender
 from classes.neural_network import NeuralNetwork, FeedForwardLayer
 from classes.song import Song
 
-# TODO: add better logging
+# List of valid traversal algorithms
+VALID_TRAVERSAL_ALGORITHMS = ('greedy_nearest_neighbour', 'optimal_path')
+
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -50,12 +53,16 @@ app.add_middleware(CORSMiddleware,
 
 
 # API GET endpoints
-@app.get('/get-next-recommendation/{current_track_id}') # TODO: test new Recommender
-def get_next_recommendation(current_track_id):
+@app.get('/get-next-recommendation/{current_track_id}/') # TODO: test new Recommender
+def get_next_recommendation(current_track_id, traversal_algorithm: str = "greedy_nearest_neighbour"):
     # check that a non-null value was passed to endpoint
     if current_track_id is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no track ID for current track playing was provided")
     
+    # check valid traversal algorithm was provided
+    if not traversal_algorithm in VALID_TRAVERSAL_ALGORITHMS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: invalid traversal algorithm provided. Choose either 'greedy_nearest_neighbour' or 'optimal_path'")
+
     # check if current_track_id exists in database
     conn = get_conn()
     cursor = conn.cursor()
@@ -88,10 +95,18 @@ def get_next_recommendation(current_track_id):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: no seed track has been provided")
     
     # get track ID of next recommendation (if any)
-    recommended_track_id = recommender.get_next_recommendation_track_id((record[0], json.loads(record[1])))
+    recommended_track_id = recommender.get_next_recommendation_track_id((record[0], json.loads(record[1])), traversal_algorithm)
     if not recommended_track_id:
         return JSONResponse({
-            "song": None
+            "track_id": "",
+            "song_name": "",
+            "artist_name": "",
+            "release_year": -1,
+            "key": -1,
+            "mode": -1,
+            "bpm": -1,
+            "time_signature": -1,
+            "genre": ""
         })
         
     # get track data of recommended track

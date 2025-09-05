@@ -56,7 +56,7 @@ def held_karp_maximimizer(dists):
         for S in subsets:
             # Go through each end destination k
             for k in S:
-                # Find the path of maximum cost (or rather set of vertices in the path) that ends at k
+                # Find the path of maximum cost (or rather set of vertices in the path) that ends at k with second last vertex m
                 S_minus_k = [i for i in S if i != k]
                 S_minus_k = tuple(S_minus_k)
                 max_cost = -np.inf
@@ -353,7 +353,7 @@ def test_network(
             # Get next recommendation
             recommended_track_id = recommender.get_next_recommendation_track_id((curr_track_id, seed_song_embedding))
             # Check if the recommender has run out of recommendations
-            if recommended_track_id == curr_track_id:
+            if recommended_track_id is None:
                 # Run out
                 is_recommendations = False
             else:

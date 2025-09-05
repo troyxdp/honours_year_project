@@ -84,6 +84,7 @@ class Recommender():
         self._seed_track_info = None
         self._played_tracks = []
         self._recommendations = []
+        self._traversal_algorithm = 'greedy_nearest_neighbour'
 
 
     # GETTER METHODS
@@ -126,6 +127,7 @@ class Recommender():
     def is_unplayed_tracks(self):
         return len(self._recommendations) > 0
 
+
     # get the currently recommended track which is at the front of self.recommendations
     def get_current_recommendation_track_id(self):
         if self._recommendations:
@@ -133,19 +135,27 @@ class Recommender():
         return None
     
     # get the next track recommendation given which track is currently playing
-    def get_next_recommendation_track_id(self, curr_track_info: tuple):
+    def get_next_recommendation_track_id(self, curr_track_info: tuple, traversal_algorithm: str = None):
         # update currently playing track data and list of played tracks
         self._current_track_info = curr_track_info
 
-        # TODO: restructure this logic - sure there is a better way to do it
         # return next recommendation
-        if len(self._recommendations) > 1: # user played recommended track
-            if curr_track_info[0] == self._recommendations[0][0]: # check that there is something left to recommend
+        if len(self._recommendations) > 0: # check that there are still recommendations
+            if curr_track_info[0] == self._recommendations[0][0]: # song that was played was recommended track
                 # remove track from recommendations
                 self._recommendations.pop(0)
 
                 # add to array of played tracks
                 self._played_tracks.append(curr_track_info)
+
+                # regenerate recommendations if traversal algorithm changed
+                if not traversal_algorithm is None and traversal_algorithm != self._traversal_algorithm:
+                    # update traversal algorithm
+                    self._traversal_algorithm = traversal_algorithm
+
+                    # regenerate recommendations
+                    self._regenerate_recommendations(curr_track_info)
+
             else: # did not play the recommended track
                 # remove track from recommendations
                 is_in_recommendations = False # boolean flag to see if curr_track_id is in recommendations list, i.e. is being played currently
@@ -155,16 +165,25 @@ class Recommender():
                         self._recommendations.pop(i)
                         break
                 
-                if is_in_recommendations:    
+                # check if traversal algorithm has changed or new track was played that was not recommended track 
+                if is_in_recommendations or (not traversal_algorithm is None and traversal_algorithm != self._traversal_algorithm):
+                    # update traversal algorithm
+                    self._traversal_algorithm = traversal_algorithm
+
                     # regenerate recommendations
                     self._regenerate_recommendations(curr_track_info) # this is also called to make the first recommendation
                     
-                    # add to array of played tracks
-                    self._played_tracks.append(curr_track_info)
-
+                    # updated played tracks if first condition of above if loop was true
+                    if is_in_recommendations:
+                        # add to array of played tracks
+                        self._played_tracks.append(curr_track_info)
+        else:
+            return None
+        
         # return recommended track
-        return self._recommendations[0][0] # if there is nothing else left to recommend or if track not updated, make same recommendation
+        return self._recommendations[0][0] if self._recommendations else None # if there is nothing else left to recommend or if track not updated, make same recommendation
     
+
     # FUNCTIONALITY METHODS
     # this method is called to generate new recommendations 
     def _regenerate_recommendations(self, curr_track_info: tuple): # TODO
@@ -176,19 +195,13 @@ class Recommender():
             raise ValueError("Error: could not find current track data")
         
         # generate recommendations
-        if self._traversal_algorithm == 'greedy_nearest_neighbour':
+        if self._traversal_algorithm == 'greedy_nearest_neighbour' or len(self._selected_tracks_info) > HELD_KARP_CUTOFF:
+            # Get greedy nearest neighbour path
             self._recommendations = self._get_greedy_nearest_neighbour_path(curr_track_info, unplayed_tracks.copy())
         elif self._traversal_algorithm == 'optimal_path' or len(self._selected_tracks_info) > HELD_KARP_CUTOFF:
             # Get optimal path
             # TODO: test this algorithm on self._selected_tracks_info length = 1
-            dists = self._get_dists(curr_track_info, unplayed_tracks.copy())
-            optimal_path, _ = self._get_optimal_path(dists)
-
-            # Translate optimal path into recommendations list
-            recommendations_track_numbers = [i - 1 for i in optimal_path[1:]]
-            self._recommendations = []
-            for i in recommendations_track_numbers:
-                self._recommendations.append(self._selected_tracks_info[i])
+            self._recommendations = self._get_optimal_path(curr_track_info, unplayed_tracks.copy())
         else:
             raise Exception("Error: traversal algorithm provided is invalid. Choose either 'greedy_nearest_neighbour' or 'optimal_path', or leave blank, which defaults to 'greedy_nearest_neighbour'")
 
@@ -197,18 +210,13 @@ class Recommender():
         # generate recommendations
         # generate recommendations using greedy nearest neighbour if that is selected traversal algorithm or number
         if self._traversal_algorithm == 'greedy_nearest_neighbour' or len(self._selected_tracks_info) > HELD_KARP_CUTOFF:
+            # Get greedy nearest neighbour path
             self._recommendations = self._get_greedy_nearest_neighbour_path(self._seed_track_info, self._selected_tracks_info.copy())
         elif self._traversal_algorithm == 'optimal_path':
             # Get optimal path
             # TODO: test this algorithm on self._selected_tracks_info length = 1
-            dists = self._get_dists(self._seed_track_info, self._selected_tracks_info.copy())
-            optimal_path, _ = self._get_optimal_path(dists)
+            self._recommendations = self._get_optimal_path(self._seed_track_info, self._selected_tracks_info.copy())
 
-            # Translate optimal path into recommendations list
-            recommendations_track_numbers = [i - 1 for i in optimal_path[1:]]
-            self._recommendations = []
-            for i in recommendations_track_numbers:
-                self._recommendations.append(self._selected_tracks_info[i])
 
     # greedy nearest neighbour search
     def _get_greedy_nearest_neighbour_path(self, curr_track: tuple, tracks: list) -> list:
@@ -253,10 +261,12 @@ class Recommender():
             sigma += (xi - yi) ** 2
         return np.sqrt(sigma)
     
-    def get_subsets(self, set, length):
+    # get all of the subsets of given length for given set. Values are sorted in increasing order in each subset
+    def _get_subsets(self, set, length):
         set_list = list(set)
         return itertools.combinations(set_list, length)
 
+    # get distances between embeddings of all the tracks provided
     def _get_dists(self, curr_track: tuple, tracks: list[tuple]):
         # Combine inputs into single list
         all_tracks = [curr_track]
@@ -271,10 +281,24 @@ class Recommender():
 
         # Return distances
         return dists
+    
+    # calculate distances between tracks and get the optimal path using the Held-Karp algorithm
+    def _get_optimal_path(self, curr_track: tuple, tracks: list):
+        # get distances and calculate optimal path
+        dists = self._get_dists(curr_track, tracks.copy())
+        optimal_path, _ = self._held_karp(dists)
+
+        # translate optimal path into recommendations list
+        recommendations = []
+        for i in optimal_path[1:]:
+            recommendations.append(tracks[i-1])
+
+        # return recommendations list
+        return recommendations
 
     # Made with assistance from https://en.wikipedia.org/wiki/Held%E2%80%93Karp_algorithm
     # Made with assistance from https://stackoverflow.com/questions/69902373/can-you-help-explain-this-held-karp-tsp-pseudocode
-    def _get_optimal_path(self, dists: np.ndarray):
+    def _held_karp(self, dists: np.ndarray):
         # Initialize values
         cities = [_ for _ in range(len(dists))]
         g = {} # keeps track of the G values for each "subpath" 
@@ -289,11 +313,11 @@ class Recommender():
         # Add subpaths of increasing length s - this is the "dynamic programming loop"
         for s in range(2, len(dists)):
             # Get the subsets of cities excluding the starting city of length s
-            subsets = self.get_subsets(cities[1:], s)
+            subsets = self._get_subsets(cities[1:], s)
             for S in subsets:
                 # Go through each end destination k
                 for k in S:
-                    # Find the path of minimum cost (or rather set of vertices in the path) that ends at k
+                    # Find the path of minimum cost (or rather set of vertices in the path) that ends at k with second last vertex m
                     S_minus_k = [i for i in S if i != k]
                     S_minus_k = tuple(S_minus_k)
                     min_cost = np.inf
@@ -315,7 +339,7 @@ class Recommender():
         arg_min_k = -1
         for k in cities[1:]:
             cost = g[(tuple(cities[1:]), k)] + dists[k][e]
-            if cost > optimal_cost:
+            if cost < optimal_cost:
                 optimal_cost = cost
                 arg_min_k = k
 
