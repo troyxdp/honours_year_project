@@ -56,7 +56,7 @@ def held_karp_maximimizer(dists):
         for S in subsets:
             # Go through each end destination k
             for k in S:
-                # Find the path of minimum cost (or rather set of vertices in the path) that ends at k
+                # Find the path of maximum cost (or rather set of vertices in the path) that ends at k
                 S_minus_k = [i for i in S if i != k]
                 S_minus_k = tuple(S_minus_k)
                 max_cost = -np.inf
@@ -441,8 +441,10 @@ def test_network(
         f.write(f"High K: {high_k}\n")
         f.write(f"K Step Size: {k_step}\n\n")
         # NCG information
-        f.write(f"Did NCG? {ncg_max_k >= low_k}")
-        f.write(f"NCG Max K: {ncg_max_k}\n")
+        f.write(f"Did NCG? {ncg_max_k >= low_k}\n")
+        f.write(f"NCG Max K: {ncg_max_k}\n\n")
+        # Traversal method
+        f.write(f"Traversal method: {traversal_algorithm}")
 
 
 
@@ -458,10 +460,10 @@ if __name__ == '__main__':
     test_dataset_path = './test_dataset/test_songs'
     song_plays_dataset_path = './test_dataset/songs_with_links_play_data'
     song_links_test_dataset_path = './test_dataset/song_links_dataset'
-    low_k = 100
-    high_k = 700 # above 801 and it takes way to long to generate a list. Up to this value is relatively quick
-    k_stride = 10
-    ncg_max_k = 0
+    low_k = 10
+    high_k = 20 # above 801 and it takes way to long to generate a list. Up to this value is relatively quick
+    k_stride = 1
+    ncg_max_k = 20
     k_values = range(low_k, high_k, k_stride)
     output_path = input("Please input the output directory for the CSV statistics files: ")
 

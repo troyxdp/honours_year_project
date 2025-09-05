@@ -1,8 +1,8 @@
-import os
-import random
-import math
+import itertools
 
 import numpy as np
+
+HELD_KARP_CUTOFF = 17
 
 class Recommender():
     
@@ -178,15 +178,37 @@ class Recommender():
         # generate recommendations
         if self._traversal_algorithm == 'greedy_nearest_neighbour':
             self._recommendations = self._get_greedy_nearest_neighbour_path(curr_track_info, unplayed_tracks.copy())
-        elif self._traversal_algorithm == 'optimal_path':
-            self._recommendations = self._get_optimal_path(curr_track_info, unplayed_tracks.copy())
+        elif self._traversal_algorithm == 'optimal_path' or len(self._selected_tracks_info) > HELD_KARP_CUTOFF:
+            # Get optimal path
+            # TODO: test this algorithm on self._selected_tracks_info length = 1
+            dists = self._get_dists(curr_track_info, unplayed_tracks.copy())
+            optimal_path, _ = self._get_optimal_path(dists)
+
+            # Translate optimal path into recommendations list
+            recommendations_track_numbers = [i - 1 for i in optimal_path[1:]]
+            self._recommendations = []
+            for i in recommendations_track_numbers:
+                self._recommendations.append(self._selected_tracks_info[i])
         else:
             raise Exception("Error: traversal algorithm provided is invalid. Choose either 'greedy_nearest_neighbour' or 'optimal_path', or leave blank, which defaults to 'greedy_nearest_neighbour'")
 
     # method to initialize recommendations
     def init_recommendations(self): 
-        # generate recommendations using seed track of set and all of the selected tracks (which never include the set track)
-        self._recommendations = self._get_greedy_nearest_neighbour_path(self._seed_track_info, self._selected_tracks_info.copy())
+        # generate recommendations
+        # generate recommendations using greedy nearest neighbour if that is selected traversal algorithm or number
+        if self._traversal_algorithm == 'greedy_nearest_neighbour' or len(self._selected_tracks_info) > HELD_KARP_CUTOFF:
+            self._recommendations = self._get_greedy_nearest_neighbour_path(self._seed_track_info, self._selected_tracks_info.copy())
+        elif self._traversal_algorithm == 'optimal_path':
+            # Get optimal path
+            # TODO: test this algorithm on self._selected_tracks_info length = 1
+            dists = self._get_dists(self._seed_track_info, self._selected_tracks_info.copy())
+            optimal_path, _ = self._get_optimal_path(dists)
+
+            # Translate optimal path into recommendations list
+            recommendations_track_numbers = [i - 1 for i in optimal_path[1:]]
+            self._recommendations = []
+            for i in recommendations_track_numbers:
+                self._recommendations.append(self._selected_tracks_info[i])
 
     # greedy nearest neighbour search
     def _get_greedy_nearest_neighbour_path(self, curr_track: tuple, tracks: list) -> list:
@@ -231,9 +253,88 @@ class Recommender():
             sigma += (xi - yi) ** 2
         return np.sqrt(sigma)
     
-    def _get_optimal_path(self, curr_track: tuple, tracks: list):
-        # TODO: implement
-        return random.shuffle(tracks)
+    def get_subsets(self, set, length):
+        set_list = list(set)
+        return itertools.combinations(set_list, length)
+
+    def _get_dists(self, curr_track: tuple, tracks: list[tuple]):
+        # Combine inputs into single list
+        all_tracks = [curr_track]
+        all_tracks.extend(tracks)
+
+        # Get distances
+        dists = np.zeros((len(all_tracks), len(all_tracks)))
+        for i in range(len(dists)):
+            for j in range(i + 1, len(dists)):
+                dists[i][j] = self._get_euclidean_distance(all_tracks[i][1], all_tracks[j][1])
+                dists[j][i] = dists[i][j]
+
+        # Return distances
+        return dists
+
+    # Made with assistance from https://en.wikipedia.org/wiki/Held%E2%80%93Karp_algorithm
+    # Made with assistance from https://stackoverflow.com/questions/69902373/can-you-help-explain-this-held-karp-tsp-pseudocode
+    def _get_optimal_path(self, dists: np.ndarray):
+        # Initialize values
+        cities = [_ for _ in range(len(dists))]
+        g = {} # keeps track of the G values for each "subpath" 
+        parent = {} # keeps track of second-last city visited in each "subpath" 
+        e = cities[0] # number of initial city
+
+        # Initialize g with 1 step subpaths
+        for k in range(1, len(dists)):
+            g[((k,), k)] = dists[0][k]
+            parent[((k,), k)] = 0
+
+        # Add subpaths of increasing length s - this is the "dynamic programming loop"
+        for s in range(2, len(dists)):
+            # Get the subsets of cities excluding the starting city of length s
+            subsets = self.get_subsets(cities[1:], s)
+            for S in subsets:
+                # Go through each end destination k
+                for k in S:
+                    # Find the path of minimum cost (or rather set of vertices in the path) that ends at k
+                    S_minus_k = [i for i in S if i != k]
+                    S_minus_k = tuple(S_minus_k)
+                    min_cost = np.inf
+                    arg_min_m = -1
+                    for m in S:
+                        if m == k:
+                            continue
+                        g_val = g[(S_minus_k, m)]
+                        cost_val = dists[m][k]
+                        cost = g_val + cost_val
+                        if cost < min_cost:
+                            min_cost = cost
+                            arg_min_m = m
+                    g[(tuple(S), k)] = min_cost
+                    parent[(tuple(S), k)] = arg_min_m
+
+        # Find optimal cost
+        optimal_cost = np.inf
+        arg_min_k = -1
+        for k in cities[1:]:
+            cost = g[(tuple(cities[1:]), k)] + dists[k][e]
+            if cost > optimal_cost:
+                optimal_cost = cost
+                arg_min_k = k
+
+        # Find optimal path by backtracking through parents
+        # Made with assistance from https://www.youtube.com/watch?v=-JjA4BLQyqE
+        path = []
+        subset = tuple(cities[1:])
+        k = arg_min_k
+        while len(subset) != 0:
+            path.append(k)
+            m = parent[(subset, k)]
+            subset = tuple([city for city in subset if city != k])
+            k = m
+        path.append(0)
+        path = list(reversed(path))
+
+        return path, optimal_cost
+
+
 
 if __name__ == '__main__':
     curr_track = ('a', np.array([1, 1]))
