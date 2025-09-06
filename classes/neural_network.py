@@ -232,6 +232,9 @@ class NeuralNetwork():
     # GETTER METHODS
     def get_num_layers(self):
         return len(self._layers)
+    
+    def get_num_inputs(self):
+        return len(self._input)
 
     def get_layer(self, layer_num):
         return self._layers[layer_num]

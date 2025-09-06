@@ -10,8 +10,9 @@ from tqdm.auto import tqdm
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+import torch
 
-from classes.neural_network import NeuralNetwork
+from classes.autoencoder import Autoencoder
 from classes.song import Song
 
 
@@ -28,11 +29,11 @@ class EpochStatistics():
     def get_epoch_time(self):
         return self._epoch_time
     
-class Trainer():
+class PyTorchTrainer():
 
     def __init__(
         self,
-        training_network: NeuralNetwork,
+        training_network: Autoencoder,
         initial_lr: float,
         final_lr: float,
         num_epochs: int,
@@ -177,6 +178,75 @@ class Trainer():
             # Return fetched data
             return song
 
+    # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
+    # specifically the parts for getting each value from the h5 file
+    def get_track_data(dataset_path):
+        # Check path provided is valid
+        if not os.path.isdir(dataset_path):
+            raise FileNotFoundError(f"Error: could not find directory {dataset_path}")
+
+        # Get data
+        if len(os.listdir(dataset_path)) == 0:
+            raise FileNotFoundError(f"Error: could not find dataset --- {dataset_path} is empty")
+        # Iterate through directory provided
+        for path_dir_1 in sorted(os.listdir(dataset_path)):
+            dir_path_1 = os.path.join(dataset_path, path_dir_1)
+            if len(os.listdir(dir_path_1)) == 0:
+                raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_1} is empty")
+            # Iterate through subdirectories
+            for path_dir_2 in sorted(os.listdir(dir_path_1)):
+                dir_path_2 = os.path.join(dir_path_1, path_dir_2)
+                if len(os.listdir(dir_path_2)) == 0:
+                    raise FileNotFoundError(f"Error: could not find dataset --- {dir_path_2} is empty")
+                # Iterate through subsubdirectories
+                for path_dir_3 in sorted(os.listdir(dir_path_2)):
+                    dir_path_3 = os.path.join(dir_path_2, path_dir_3)
+                    # Get files
+                    for file_name in sorted(os.listdir(dir_path_3)):
+                        file_path = os.path.join(dir_path_3, file_name)
+                        with tables.open_file(file_path, mode='r') as h5:
+                            # Get values for dataset
+                            num_songs = h5.root.metadata.songs.nrows
+                            for i in range(num_songs):
+                                song_id = str(h5.root.metadata.songs.cols.song_id[i])[2:-1]
+                                song_name = str(h5.root.metadata.songs.cols.title[i])[2:-1]
+                                artist_name = str(h5.root.metadata.songs.cols.artist_name[i])[2:-1]
+                                # year = h5.root.musicbrainz.songs.cols.year[i]
+                                key = h5.root.analysis.songs.cols.key[i]
+                                mode = h5.root.analysis.songs.cols.mode[i]
+                                bpm = h5.root.analysis.songs.cols.tempo[i]
+                                time_signature = h5.root.analysis.songs.cols.time_signature[i]
+                                mfcc_values = None
+                                if h5.root.analysis.songs.nrows == i + 1:
+                                    mfcc_values = h5.root.analysis.segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : , :]
+                                else:
+                                    mfcc_values = h5.root.analysis.songs.cols.idx_segments_timbre[h5.root.analysis.songs.cols.idx_segments_timbre[i] : h5.root.analysis.songs.cols.idx_segments_timbre[i+1], :]
+                                
+                                # Get values from Spotify Tracks Dataset
+                                danceability = h5.root.analysis.songs.cols.danceability[i]
+                                energy = h5.root.analysis.songs.cols.energy[i]
+                                loudness = h5.root.analysis.songs.cols.loudness[i]
+                                valence = h5.root.analysis.songs.cols.valence[i]
+                                instrumentalness = h5.root.analysis.songs.cols.instrumentalness[i]
+
+                                # return Song object with all of the data
+                                song = Song(
+                                    song_id=song_id,
+                                    song_name=song_name,
+                                    artist_name=artist_name,
+                                    key=key,
+                                    mode=mode,
+                                    tempo=bpm,
+                                    danceability=danceability,
+                                    energy=energy,
+                                    loudness=loudness,
+                                    instrumentalness=instrumentalness,
+                                    valence=valence,
+                                    time_signature=time_signature,
+                                    timbre_values=mfcc_values,
+                                )
+                                yield song
+
     def normalize_song(self, song: Song):
         # Normalize danceability
         if song.danceability < 0:
@@ -232,7 +302,7 @@ class Trainer():
     def train_model(self):
         # get file paths for dataset as well as number of training, validation, and testing items
         print("\nFetching training and validation data...")
-        file_paths = self.get_file_paths(self.training_network.get_num_inputs())
+        file_paths = self.get_file_paths(202)
         num_train_val_files = int(len(file_paths) * (self.train_percentage / 100.0))
         num_val_files = int(num_train_val_files * (self.val_percentage_of_train / 100.0))
         num_train_files = num_train_val_files - num_val_files
@@ -250,6 +320,9 @@ class Trainer():
         best_val_loss = math.inf
         best_val_loss_epoch = -1
 
+        # Make training parameters
+        loss_fn = torch.nn.MSELoss(reduction="sum")
+
         # start training
         train_start_time = time.time()
         print("Starting training...\n")
@@ -257,11 +330,18 @@ class Trainer():
             print(f"Epoch {epoch + 1}...")
             # get learning rate
             lr = self._determine_epoch_learning_rate(epoch, self.num_epochs, self.initial_lr, self.final_lr)
+            optimizer = torch.optim.SGD(
+                params=self.training_network.parameters(),
+                lr=lr,
+                momentum=self.momentum,
+                weight_decay=self.l2_regularization_lambda,
+            )
 
             # train cycle
             train_cycle_start_time = time.time()
             train_error_this_epoch = 0
             num_train_samples = 0
+            self.training_network.train()
             for file_path in tqdm(file_paths[:num_train_files], desc="Training cycle progress: ", ncols=150):
                 # get song and feed it forward through network
                 song = self.get_song_data_from_file(file_path)
@@ -269,18 +349,23 @@ class Trainer():
                     input_value = song.get_nn_input()
                 except ValueError:
                     continue
-                self.training_network.set_input(input_value)
-                self.training_network.feed_forward()
-                output_value = self.training_network.get_output()
+                x = torch.from_numpy(input_value).to(dtype=torch.float32)
+                
+                # Zero the gradients of the optimizer
+                optimizer.zero_grad()
 
-                # get error of output for statistics
-                error = np.dot(np.subtract(input_value, output_value), np.subtract(input_value, output_value))
-                train_error_this_epoch += error
+                # Get the output of the network
+                outputs = self.training_network.forward(x)
 
-                # backpropogate
-                error_prime = np.subtract(output_value, input_value)
-                self.training_network.back_propogate(lr=lr, error_prime=error_prime, momentum=self.momentum, clip_score=self.clip_score, l2_lambda=self.l2_regularization_lambda)
+                # Calculate the loss and backpropagate
+                loss = loss_fn(outputs, x)
+                loss.backward()
 
+                # Update the weights using the gradients obtained from backpropagation
+                optimizer.step()
+
+                # Update statistics
+                train_error_this_epoch += loss.item()
                 num_train_samples += 1
             
             # save statistics
@@ -295,22 +380,24 @@ class Trainer():
             val_error_this_epoch = 0
             val_cycle_start_time = time.time()
             num_val_samples = 0
-            for file_path in tqdm(file_paths[num_train_files:num_train_files+num_val_files], desc="Validation cycle progress: ", ncols=150):
-                # get song and feed it forward through network
-                song = self.get_song_data_from_file(file_path)
-                try:
-                    input_value = song.get_nn_input()
-                except ValueError:
-                    continue
-                self.training_network.set_input(input_value)
-                self.training_network.feed_forward()
-                output_value = self.training_network.get_output()
-
-                # get error of output for statistics
-                error = np.dot(np.subtract(input_value, output_value), np.subtract(input_value, output_value))
-                val_error_this_epoch += error
-
-                num_val_samples += 1
+            self.training_network.eval()
+            with torch.no_grad():
+                for file_path in tqdm(file_paths[num_train_files:num_train_files+num_val_files], desc="Validation cycle progress: ", ncols=150):
+                    # get song and feed it forward through network
+                    song = self.get_song_data_from_file(file_path)
+                    try:
+                        input_value = song.get_nn_input()
+                    except ValueError:
+                        continue
+                    x = torch.from_numpy(input_value).to(dtype=torch.float32)
+                    
+                    # Get the output from the network
+                    outputs = self.training_network.forward(x)
+                    loss = loss_fn(outputs, x)
+                    
+                    # Update statistics
+                    val_error_this_epoch += loss.item()
+                    num_val_samples += 1
 
             # save statistics 
             val_cycle_time = time.time() - val_cycle_start_time
@@ -323,17 +410,15 @@ class Trainer():
             # save model
             if train_error_this_epoch < best_train_loss:
                 print("New best train loss!")
-                self.training_network.save_network(os.path.join(self.output_folder, 'best_train_loss_network.pkl'))
+                torch.save(self.training_network.state_dict(), os.path.join(self.output_folder, 'best_train_loss_network.pt'))
                 best_train_loss = train_error_this_epoch
             if val_error_this_epoch < best_val_loss:
                 print("New best val loss!")
-                self.training_network.save_network(os.path.join(self.output_folder, 'best_val_loss_network.pkl'))
-                best_val_loss = val_error_this_epoch
+                torch.save(self.training_network.state_dict(), os.path.join(self.output_folder, 'best_val_loss_network.pt'))
                 best_val_loss_epoch = epoch
             if (epoch + 1) % self.checkpoint_epoch == 0:
                 print(f"Checkpoint save at epoch {epoch + 1}")
-                self.training_network.save_network(os.path.join(self.output_folder, f"checkpoint_epoch_{epoch + 1}_save.pkl"))
-
+                torch.save(self.training_network.state_dict(), os.path.join(self.output_folder, f"checkpoint_epoch_{epoch + 1}_save.pt"))
             # early termination if no improvement has been seen in validation loss for a set number of epochs
             if epoch - self.early_stop_threshold > best_val_loss_epoch:
                 print(f"\nTerminating training early - no improvement seen in {self.early_stop_threshold} epochs")
@@ -342,8 +427,8 @@ class Trainer():
             print()
 
         # save last network
-        self.training_network.save_network(os.path.join(self.output_folder, "last.pkl"))
-
+        torch.save(self.training_network.state_dict(), os.path.join(self.output_folder, "last.pt"))
+                
         # get total training time
         train_end_time = time.time() - train_start_time
         print(f"Training completed in {train_end_time / 3600} hours")
@@ -401,9 +486,5 @@ class Trainer():
             for i, val_stat in enumerate(val_stats):
                 writer.writerow([i+1, val_stat.get_loss(), val_stat.get_epoch_time()])
 
-    # adapted from https://medium.com/@piyushkashyap045/mastering-weight-initialization-in-neural-networks-a-beginners-guide-6066403140e9
-    def get_he_initialization(n_inputs, n_outputs):
-        return np.random.normal(0, np.sqrt(2 / n_inputs), (n_outputs, n_inputs))
-    
     def _determine_epoch_learning_rate(self, epoch, num_epochs, initial_lr, final_lr):
         return initial_lr + epoch * ((final_lr - initial_lr) / (num_epochs - 1)) # num_epochs - 1 so that it cancels with epoch on the largest value of epoch

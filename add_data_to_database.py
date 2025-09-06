@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import numpy as np
 
 from classes.trainer import Trainer
+from classes.neural_network import NeuralNetwork
 
 # Load environment variables from .env file
 load_dotenv()
@@ -26,9 +27,19 @@ conn = psycopg2.connect(
 )
 
 if __name__ == '__main__':
+    trainer = Trainer(
+        training_network=NeuralNetwork(),
+        initial_lr=0.001,
+        final_lr=0.00025,
+        num_epochs=150,
+        momentum=0.9,
+        l2_regularization_lambda=0.001,
+        dataset_path='./ProjectDataset',
+        output_folder='',
+    )
     num_tracks_to_add = 100
     cursor = conn.cursor()
-    for i, track in enumerate(Trainer.get_track_data('./MillionSongSpotifyTracksDataset')):
+    for i, track in enumerate(trainer.get_file_paths(input_dim=202)):
         if i < num_tracks_to_add:
             cursor.execute(
                 '''

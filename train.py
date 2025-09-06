@@ -6,15 +6,6 @@ from classes.neural_network import NeuralNetwork, FeedForwardLayer
 from classes.song import Song
 from classes.trainer import Trainer
 
-def relu(z_values: np.ndarray):
-    to_ret = np.zeros(len(z_values))
-    for i, z in enumerate(z_values):
-        if z > 0:
-            to_ret[i] = z
-        else:
-            to_ret[i] = 0
-    return to_ret
-
 if __name__ == '__main__':
     if input("Would you like to train a model? (y/n) ").lower() == 'y':
         # number of neurons: 202 -> 165 -> 128 -> 64 -> 32 -> 64 -> 128 -> 165 -> 202
@@ -35,35 +26,25 @@ if __name__ == '__main__':
         layer_3_weights = Trainer.get_he_initialization(128, 64)
         layer_3_biases = np.random.rand(64) * bias_scale
         layer_3 = FeedForwardLayer(layer_3_weights, layer_3_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
-        # # Layer 4
-        # layer_4_weights = Trainer.get_he_initialization(64, 32)
-        # layer_4_biases = np.random.rand(32) * bias_scale
-        # layer_4 = FeedForwardLayer(layer_4_weights, layer_4_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
-        # # Layer 5
-        # layer_5_weights = Trainer.get_he_initialization(32, 64)
-        # layer_5_biases = np.random.rand(64) * bias_scale
-        # layer_5 = FeedForwardLayer(layer_5_weights, layer_5_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
-        # Layer 6
-        layer_6_weights = Trainer.get_he_initialization(64, 128)
-        layer_6_biases = np.random.rand(128) * bias_scale
-        layer_6 = FeedForwardLayer(layer_6_weights, layer_6_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
+        # Layer 4
+        layer_4_weights = Trainer.get_he_initialization(64, 128)
+        layer_4_biases = np.random.rand(128) * bias_scale
+        layer_4 = FeedForwardLayer(layer_4_weights, layer_4_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
         # Layer 7
-        layer_7_weights = Trainer.get_he_initialization(128, 165)
-        layer_7_biases = np.random.rand(165) * bias_scale
-        layer_7 = FeedForwardLayer(layer_7_weights, layer_7_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
+        layer_5_weights = Trainer.get_he_initialization(128, 165)
+        layer_5_biases = np.random.rand(165) * bias_scale
+        layer_5 = FeedForwardLayer(layer_5_weights, layer_5_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
         # Layer 8
-        layer_8_weights = Trainer.get_he_initialization(165, 202)
-        layer_8_biases = np.random.rand(202) * bias_scale
-        layer_8 = FeedForwardLayer(layer_8_weights, layer_8_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
+        layer_6_weights = Trainer.get_he_initialization(165, 202)
+        layer_6_biases = np.random.rand(202) * bias_scale
+        layer_6 = FeedForwardLayer(layer_6_weights, layer_6_biases, NeuralNetwork.relu, NeuralNetwork.relu_dx)
         # Add each layer
         nn.append_layer(layer_1)
         nn.append_layer(layer_2)
         nn.append_layer(layer_3)
-        # nn.append_layer(layer_4)
-        # nn.append_layer(layer_5)
+        nn.append_layer(layer_4)
+        nn.append_layer(layer_5)
         nn.append_layer(layer_6)
-        nn.append_layer(layer_7)
-        nn.append_layer(layer_8)
 
         # Create trainer object
         output_folder = input("Please input the folder you would like to save your models to: ")
