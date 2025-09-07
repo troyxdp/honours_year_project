@@ -8,8 +8,10 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 from classes.trainer import Trainer
+from classes.autoencoder import Autoencoder
 from classes.neural_network import NeuralNetwork
 from classes.recommender import Recommender
 
@@ -207,7 +209,7 @@ def generate_random_traversal_of_linked_songs(song_links_files: list, k: int) ->
 
 # Test the NCG and generation times of a given neural network on a given set of song lists
 def test_network_ncg(
-        nn: NeuralNetwork, 
+        nn: Autoencoder, 
         test_dataset_path: str, 
         song_plays_dataset_path: str, 
         pregenerated_lists_dataset_path: str,
@@ -249,10 +251,8 @@ def test_network_ncg(
         # Get first (seed track) song and its embedding
         seed_track_id = selected_tracks[0]
         seed_song = trainer.get_song_data_from_file(k_test_song_paths[0])
-        seed_song_nn_input = seed_song.get_nn_input()
-        nn.set_input(seed_song_nn_input)
-        nn.feed_forward()
-        seed_song_embedding = nn.get_output()
+        x = torch.from_numpy(seed_song.get_nn_input()).to(dtype=torch.float32)
+        seed_song_embedding = nn.encode(x).detach().numpy()
         seed_track_info = (seed_track_id, seed_song_embedding)
         recommender.set_seed_track_info(seed_track_info)
 
@@ -264,10 +264,8 @@ def test_network_ncg(
             except:
                 print(song_path)
                 exit(0)
-            song_nn_input = song.get_nn_input()
-            nn.set_input(song_nn_input)
-            nn.feed_forward()
-            song_embedding = nn.get_output()
+            x = torch.from_numpy(song.get_nn_input()).to(dtype=torch.float32)
+            song_embedding = nn.encode(x).detach().numpy()
             track_info = (os.path.splitext(os.path.basename(song_path))[0], song_embedding)
             selected_tracks_info.append(track_info)
         recommender.init_selected_track_ids(selected_tracks_info=selected_tracks_info)
@@ -345,7 +343,7 @@ def test_network_ncg(
 
 # Test the precision and generation times of a given a neural network on a given set of song lists
 def test_network_precision(
-        nn: NeuralNetwork, 
+        nn: Autoencoder, 
         test_dataset_path: str, 
         song_links_test_dataset_path: str, 
         pregenerated_lists_dataset_path: str,
@@ -387,10 +385,8 @@ def test_network_precision(
         # Get first (seed track) song and its embedding
         seed_track_id = selected_tracks[0]
         seed_song = trainer.get_song_data_from_file(k_test_song_paths[0])
-        seed_song_nn_input = seed_song.get_nn_input()
-        nn.set_input(seed_song_nn_input)
-        nn.feed_forward()
-        seed_song_embedding = nn.get_output()
+        x = torch.from_numpy(seed_song.get_nn_input()).to(dtype=torch.float32)
+        seed_song_embedding = nn.encode(x).detach().numpy()
         seed_track_info = (seed_track_id, seed_song_embedding)
         recommender.set_seed_track_info(seed_track_info)
 
@@ -402,10 +398,8 @@ def test_network_precision(
             except:
                 print(song_path)
                 exit(0)
-            song_nn_input = song.get_nn_input()
-            nn.set_input(song_nn_input)
-            nn.feed_forward()
-            song_embedding = nn.get_output()
+            x = torch.from_numpy(song.get_nn_input()).to(dtype=torch.float32)
+            song_embedding = nn.encode(x).detach().numpy()
             track_info = (os.path.splitext(os.path.basename(song_path))[0], song_embedding)
             selected_tracks_info.append(track_info)
         recommender.init_selected_track_ids(selected_tracks_info=selected_tracks_info)
@@ -485,7 +479,7 @@ def test_network_precision(
 
 # Test a given neural network - get precision, generation time, and NCG scores for different k values
 def test_network_on_random_lists(
-        nn: NeuralNetwork, 
+        nn: Autoencoder, 
         test_dataset_path: str, 
         song_plays_dataset_path: str, 
         song_links_test_dataset_path: str, 
@@ -548,10 +542,8 @@ def test_network_on_random_lists(
         # Get first (seed track) song and its embedding
         seed_track_id = selected_tracks[0]
         seed_song = trainer.get_song_data_from_file(k_test_song_paths[0])
-        seed_song_nn_input = seed_song.get_nn_input()
-        nn.set_input(seed_song_nn_input)
-        nn.feed_forward()
-        seed_song_embedding = nn.get_output()
+        x = torch.from_numpy(seed_song.get_nn_input()).to(dtype=torch.float32)
+        seed_song_embedding = nn.encode(x).detach().numpy()
         seed_track_info = (seed_track_id, seed_song_embedding)
         recommender.set_seed_track_info(seed_track_info)
 
@@ -563,10 +555,8 @@ def test_network_on_random_lists(
             except:
                 print(song_path)
                 exit(0)
-            song_nn_input = song.get_nn_input()
-            nn.set_input(song_nn_input)
-            nn.feed_forward()
-            song_embedding = nn.get_output()
+            x = torch.from_numpy(song.get_nn_input()).to(dtype=torch.float32)
+            song_embedding = nn.encode(x).detach().numpy()
             track_info = (os.path.splitext(os.path.basename(song_path))[0], song_embedding)
             selected_tracks_info.append(track_info)
         recommender.init_selected_track_ids(selected_tracks_info=selected_tracks_info)
@@ -726,56 +716,6 @@ def test_network_on_random_lists(
         f.write(f"Traversal method: {traversal_algorithm}")
 
 
-# Generate lists
-def generate_lists(
-        test_dataset_path: str, 
-        song_plays_dataset_path: str, 
-        song_links_test_dataset_path: str, 
-        output_path: str,
-        low_k=10,
-        high_k=20,
-        k_step=2
-    ):
-    # Get test dataset files with song data
-    print("Loading test dataset...")
-    trainer = Trainer(
-        training_network=NeuralNetwork(202, 202),
-        initial_lr=0.001,
-        final_lr=0.0001,
-        num_epochs=120,
-        dataset_path=test_dataset_path,
-        output_folder=''
-    )
-    initial_test_dataset_files = trainer.get_file_paths(input_dim=202)
-    initial_test_dataset_files = sorted(initial_test_dataset_files)
-
-    print("Getting song links...")
-    initial_song_ids = [os.path.splitext(os.path.basename(track))[0] for track in initial_test_dataset_files]
-
-    # Check that the song files exist in each of the datasets
-    song_ids = []
-    for song_id in initial_song_ids:
-        song_links_path = os.path.join(song_links_test_dataset_path, song_id[2], song_id[3], song_id[4], f'{song_id}.txt')
-        test_songs_path = os.path.join(test_dataset_path, song_id[2], song_id[3], song_id[4], f'{song_id}.h5')
-        song_plays_path = os.path.join(song_plays_dataset_path, song_id[2], song_id[3], song_id[4], f'{song_id}.csv')
-        if os.path.exists(song_links_path) and os.path.exists(test_songs_path) and os.path.exists(song_plays_path):
-            song_ids.append(song_id)
-        else:
-            print("Skipping song...")
-    print("Number of songs:", len(song_ids))
-    song_links_files = [os.path.join(song_links_test_dataset_path, file_name[2], file_name[3], file_name[4], f'{file_name}.txt') for file_name in song_ids]
-
-    k_values = range(low_k, high_k + 1, k_step)
-    for k in k_values:
-        # Generate a set of linked tracks
-        selected_tracks = generate_random_traversal_of_linked_songs(song_links_files, k)
-        print(f"{selected_tracks[:8]} for k = {k}...")
-
-        # Write the song IDs
-        with open(os.path.join(output_path, f'{k}.txt'), 'w') as f:
-            to_write = '\n'.join(selected_tracks)
-            f.write(to_write)
-
 
 # Main code
 if __name__ == '__main__':
@@ -793,7 +733,8 @@ if __name__ == '__main__':
         if not os.path.exists(nn_path):
             print("Error: could not find neural network")
             exit(0)
-        nn = NeuralNetwork.load_network(nn_path)
+        nn = Autoencoder()
+        nn.load_state_dict(torch.load(nn_path, weights_only=True))
 
         # Paths to data and hyperparameters to use for testing
         low_k = 10
@@ -834,7 +775,8 @@ if __name__ == '__main__':
         if not os.path.exists(nn_path):
             print("Error: could not find neural network")
             exit(0)
-        nn = NeuralNetwork.load_network(nn_path)
+        nn = Autoencoder()
+        nn.load_state_dict(torch.load(nn_path, weights_only=True))
 
         precision_or_ncg = input("Would you like to test precision or NCG? (precision/ncg) ")
         output_path = input("Please input the path to the folder you would like to output the raw CSV stats to: ")
@@ -857,21 +799,3 @@ if __name__ == '__main__':
                 traversal_algorithm=traversal_algorithm,
                 output_path=output_path
             )
-
-    # Generate song lists to test on
-    if input("\nWould you like to generate lists of songs for tests? (y/n) ").lower() == 'y':
-        high_k = int(input("Input High K: "))
-        low_k = int(input("Input Low K: "))
-        k_stride = int(input("Input K Stride: "))
-
-        output_path = input("Please input the root directory for all of the lists: ")
-
-        generate_lists(
-            test_dataset_path=test_dataset_path,
-            song_plays_dataset_path=song_plays_dataset_path,
-            song_links_test_dataset_path=song_links_test_dataset_path,
-            output_path=output_path,
-            low_k=low_k,
-            high_k=high_k,
-            k_step=k_stride,
-        )

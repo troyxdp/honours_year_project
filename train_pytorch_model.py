@@ -18,14 +18,15 @@ if __name__ == '__main__':
             final_lr=0.00025,
             num_epochs=150,
             momentum=0.9,
-            l2_regularization_lambda=0,
+            l2_regularization_lambda=0.001,
             dataset_path='./ProjectDataset',
             output_folder=output_folder,
         )
 
         # Check sureness that output path is what is actually desired
         if input(f"Are you sure you would like your model to be saved to {output_folder}? (y/n) ").lower() == 'y':
-            trainer.train_model()
+            opt_type = input("Would you like to use SGD or Adam optimization? (sgd/adam) ")
+            trainer.train_model(opt_type=opt_type)
         else:
             print("Aborting training!")
 

@@ -299,7 +299,7 @@ class PyTorchTrainer():
         # Not missing anything --- return False
         return False
 
-    def train_model(self):
+    def train_model(self, opt_type: str = "SGD"):
         # get file paths for dataset as well as number of training, validation, and testing items
         print("\nFetching training and validation data...")
         file_paths = self.get_file_paths(202)
@@ -330,12 +330,22 @@ class PyTorchTrainer():
             print(f"Epoch {epoch + 1}...")
             # get learning rate
             lr = self._determine_epoch_learning_rate(epoch, self.num_epochs, self.initial_lr, self.final_lr)
-            optimizer = torch.optim.SGD(
-                params=self.training_network.parameters(),
-                lr=lr,
-                momentum=self.momentum,
-                weight_decay=self.l2_regularization_lambda,
-            )
+            optimizer = None
+            if opt_type.lower() == 'sgd':
+                optimizer = torch.optim.SGD(
+                    params=self.training_network.parameters(),
+                    lr=lr,
+                    momentum=self.momentum,
+                    weight_decay=self.l2_regularization_lambda,
+                )
+            elif opt_type.lower() == 'adam':
+                optimizer = torch.optim.Adam(
+                    params=self.training_network.parameters(),
+                    lr=lr,
+                    weight_decay=self.l2_regularization_lambda,
+                )
+            else:
+                raise ValueError("Error: invalid optimizer type provided. You can either choose SGD (by passing 'sgd' or Adam (by passing 'adam')")
 
             # train cycle
             train_cycle_start_time = time.time()
