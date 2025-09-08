@@ -126,7 +126,11 @@ class Recommender():
 
     def is_unplayed_tracks(self):
         return len(self._recommendations) > 0
-
+    
+    def get_recommendation_path(self):
+        path = [self._current_track_info]
+        path.extend(self._recommendations)
+        return path
 
     # get the currently recommended track which is at the front of self.recommendations
     def get_current_recommendation_track_id(self):
@@ -214,7 +218,6 @@ class Recommender():
             self._recommendations = self._get_greedy_nearest_neighbour_path(self._seed_track_info, self._selected_tracks_info.copy())
         elif self._traversal_algorithm == 'optimal_path':
             # Get optimal path
-            # TODO: test this algorithm on self._selected_tracks_info length = 1
             self._recommendations = self._get_optimal_path(self._seed_track_info, self._selected_tracks_info.copy())
 
 

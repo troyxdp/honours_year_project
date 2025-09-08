@@ -406,4 +406,6 @@ class Trainer():
         return np.random.normal(0, np.sqrt(2 / n_inputs), (n_outputs, n_inputs))
     
     def _determine_epoch_learning_rate(self, epoch, num_epochs, initial_lr, final_lr):
+        if num_epochs == 1:
+            return initial_lr
         return initial_lr + epoch * ((final_lr - initial_lr) / (num_epochs - 1)) # num_epochs - 1 so that it cancels with epoch on the largest value of epoch

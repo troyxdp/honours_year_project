@@ -2,6 +2,7 @@ import os
 import random
 import time
 import itertools
+import argparse
 
 import pandas as pd
 import matplotlib
@@ -100,7 +101,7 @@ def held_karp_maximimizer(dists):
 
 
 # Generate a random path through songs that are linked of length k
-def generate_random_traversal_of_linked_songs(song_links_files: list, k: int) -> list:
+def generate_random_traversal_of_linked_songs(song_links_files: list, k: int, song_links_test_dataset_path: str) -> list:
     # List of k selected tracks and number of selected tracks
     selected_tracks = [] # List of song IDs selected
     num_selected = 1
@@ -536,7 +537,7 @@ def test_network_on_random_lists(
         print("\nTesting for k =", k, "...")
 
         # Generate a set of linked tracks
-        selected_tracks = generate_random_traversal_of_linked_songs(song_links_files, k)
+        selected_tracks = generate_random_traversal_of_linked_songs(song_links_files, k, song_links_test_dataset_path)
         print(f"{selected_tracks[:8]} for k = {k}...")
 
         # Get paths to song data for generated list of k songs
@@ -768,7 +769,7 @@ def generate_lists(
     k_values = range(low_k, high_k + 1, k_step)
     for k in k_values:
         # Generate a set of linked tracks
-        selected_tracks = generate_random_traversal_of_linked_songs(song_links_files, k)
+        selected_tracks = generate_random_traversal_of_linked_songs(song_links_files, k, song_links_test_dataset_path)
         print(f"{selected_tracks[:8]} for k = {k}...")
 
         # Write the song IDs
@@ -779,28 +780,41 @@ def generate_lists(
 
 # Main code
 if __name__ == '__main__':
-    # Paths to dataset
-    # ============================================================================================
-    test_dataset_path = './test_dataset/test_songs'
-    song_plays_dataset_path = './test_dataset/songs_with_links_play_data'
-    song_links_test_dataset_path = './test_dataset/song_links_dataset'
-    # ============================================================================================
+    parser = argparse.ArgumentParser(
+        prog='Model Tester',
+        description='Test a model created using the neural_network class',
+    )
+    parser.add_argument('--pregenerated', action='store_true', help='Specification of whether to run tests on pregenerated song lists')
+    parser.add_argument('--test-precision', action='store_true', help='Specification of whether to test for precision or not')
+    parser.add_argument('--test-dataset-path', type=str, help='Path to the test dataset of h5 songs')
+    parser.add_argument('--song-plays-dataset-path', type=str, help='Path to the dataset showing which users played a song with a given song ID')
+    parser.add_argument('--song-links-dataset-path', type=str, help='Path to the dataset showing which songs have common listeners for a given song ID')
+    parser.add_argument('--pregenerated-lists-dataset-path', type=str, help='Path to the pregenerated lists of songs of different k lengths to test on')
+    parser.add_argument('--output-path', type=str, help='The directory to output the CSV files containing the test results for each k value to')
+    parser.add_argument('--nn-path', type=str, help='Path to neural network to test')
+    parser.add_argument('--low-k', type=int, help='Lowest k value to test on')
+    parser.add_argument('--high-k', type=int, help='Highest k value to test on')
+    parser.add_argument('--k-step', type=int, help='The number of integers after a k value to next test on')
+    parser.add_argument('--ncg-max-k', type=int, help='The maximum k value to calculate NCG for. Not recommended going above 20')
+    parser.add_argument('--traversal-algorithm', type=str, choices=['greedy_nearest_neighbour', 'optimal_path'], help='The type of traversal you would like to perform: Greedy Nearest Neighbour (greedy_nearest_neighbour) or Held-Karp (optimal_path)')
+
+    args = parser.parse_args()
 
     # Test on lists that are randomly generated during testing
-    if input("Would you like to test your model on randomly generated lists of songs? (y/n) ").lower() == 'y':
+    if not args.pregenerated:
         # Load encoder neural network for testing
-        nn_path = input("Please input the path to the neural network you would like to test: ")
+        nn_path = args.nn_path
         if not os.path.exists(nn_path):
             print("Error: could not find neural network")
             exit(0)
         nn = NeuralNetwork.load_network(nn_path)
 
         # Paths to data and hyperparameters to use for testing
-        low_k = 10
-        high_k = 20 # above 801 and it takes way to long to generate a list. Up to this value is relatively quick
-        k_stride = 1
-        ncg_max_k = 20
-        output_path = input("Please input the output directory for the CSV statistics files: ")
+        low_k = args.low_k
+        high_k = args.high_k # above 801 and it takes way to long to generate a list. Up to this value is relatively quick
+        k_stride = args.k_step
+        ncg_max_k = args.ncg_max_k
+        output_path = args.output_path
 
         # Check if output_path exists
         if not os.path.isdir(output_path):
@@ -810,68 +824,71 @@ if __name__ == '__main__':
         # Test the network
         test_network_on_random_lists(
             nn=nn,
-            test_dataset_path=test_dataset_path,
-            song_plays_dataset_path=song_plays_dataset_path,
-            song_links_test_dataset_path=song_links_test_dataset_path,
+            test_dataset_path=args.test_dataset_path,
+            song_plays_dataset_path=args.song_plays_dataset_path,
+            song_links_test_dataset_path=args.song_links_test_dataset_path,
             traversal_algorithm='greedy_nearest_neighbour',
             high_k=high_k,
             low_k=low_k,
             k_step=k_stride,
             ncg_max_k=ncg_max_k,
-            debug=False,
             output_path=output_path
         )
 
     # Test on pregenerated lists
-    if input("\nWould you like to test your model on pregenerated song lists? (y/n) ").lower() == 'y':
-        pregenerated_lists_dataset_path = input("Please input the path to the pregenerated lists: ")
+    else:
+        pregenerated_lists_dataset_path = args.pregenerated_lists_dataset_path
         if not os.path.isdir(pregenerated_lists_dataset_path):
             print("Error: no such directory exists as the one you enterred")
             exit(0)
 
         # Load encoder neural network for testing
-        nn_path = input("Please input the path to the neural network you would like to test: ")
+        nn_path = args.nn_path
         if not os.path.exists(nn_path):
             print("Error: could not find neural network")
             exit(0)
         nn = NeuralNetwork.load_network(nn_path)
 
-        precision_or_ncg = input("Would you like to test precision or NCG? (precision/ncg) ")
-        output_path = input("Please input the path to the folder you would like to output the raw CSV stats to: ")
-        if precision_or_ncg == 'precision':
+        output_path = args.output_path
+        # Check if output_path exists
+        if not os.path.isdir(output_path):
+            print("Error: could not find output path")
+            exit(0)
+
+        if args.test_precision:
             test_network_precision(
                 nn=nn,
-                test_dataset_path=test_dataset_path,
-                song_links_test_dataset_path=song_links_test_dataset_path,
+                test_dataset_path=args.test_dataset_path,
+                song_links_test_dataset_path=args.song_links_dataset_path,
                 pregenerated_lists_dataset_path=pregenerated_lists_dataset_path,
                 traversal_algorithm='greedy_nearest_neighbour',
                 output_path=output_path,
             )
-        elif precision_or_ncg == 'ncg':
+        else:
             traversal_algorithm = input("Would you like to test using Greedy Nearest Neighbour or Held Karp traversal? (greedy_nearest_neighbour/optimal_path) ")
             test_network_ncg(
                 nn=nn,
-                test_dataset_path=test_dataset_path,
-                song_plays_dataset_path=song_plays_dataset_path,
+                test_dataset_path=args.test_dataset_path,
+                song_plays_dataset_path=args.song_plays_dataset_path,
                 pregenerated_lists_dataset_path=pregenerated_lists_dataset_path,
-                traversal_algorithm=traversal_algorithm,
+                traversal_algorithm=args.traversal_algorithm,
                 output_path=output_path
             )
 
-    # Generate song lists to test on
-    if input("\nWould you like to generate lists of songs for tests? (y/n) ").lower() == 'y':
-        high_k = int(input("Input High K: "))
-        low_k = int(input("Input Low K: "))
-        k_stride = int(input("Input K Stride: "))
+    # # Generate song lists to test on
+    # if input("\nWould you like to generate lists of songs for tests? (y/n) ").lower() == 'y':
+    #     high_k = int(input("Input High K: "))
+    #     low_k = int(input("Input Low K: "))
+    #     k_stride = int(input("Input K Stride: "))
 
-        output_path = input("Please input the root directory for all of the lists: ")
+    #     output_path = input("Please input the root directory for all of the lists: ")
 
-        generate_lists(
-            test_dataset_path=test_dataset_path,
-            song_plays_dataset_path=song_plays_dataset_path,
-            song_links_test_dataset_path=song_links_test_dataset_path,
-            output_path=output_path,
-            low_k=low_k,
-            high_k=high_k,
-            k_step=k_stride,
-        )
+    #     generate_lists(
+    #         test_dataset_path=args.test_dataset_path,
+    #         song_plays_dataset_path=args.song_plays_dataset_path,
+    #         song_links_test_dataset_path=song_links_test_dataset_path,
+    #         output_path=output_path,
+    #         low_k=low_k,
+    #         high_k=high_k,
+    #         k_step=k_stride,
+    #     )
