@@ -103,7 +103,7 @@ def held_karp_maximimizer(dists):
 
 
 # Generate a random path through songs that are linked of length k
-def generate_random_traversal_of_linked_songs(song_links_files: list, k: int) -> list:
+def generate_random_traversal_of_linked_songs(song_links_files: list, k: int, song_links_test_dataset_path: str) -> list:
     # List of k selected tracks and number of selected tracks
     selected_tracks = [] # List of song IDs selected
     num_selected = 1
@@ -531,7 +531,7 @@ def test_network_on_random_lists(
         print("\nTesting for k =", k, "...")
 
         # Generate a set of linked tracks
-        selected_tracks = generate_random_traversal_of_linked_songs(song_links_files, k)
+        selected_tracks = generate_random_traversal_of_linked_songs(song_links_files, k, song_links_test_dataset_path)
         print(f"{selected_tracks[:8]} for k = {k}...")
 
         # Get paths to song data for generated list of k songs
