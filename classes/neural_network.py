@@ -117,7 +117,7 @@ class FeedForwardLayer(Layer):
             self._velocity_weights = np.zeros_like(weights_grad, dtype=np.float64)
             self._velocity_bias = np.zeros_like(bias_grad, dtype=np.float64)
         
-        # Set velocity value if it has been initialized - check correctness of minus sign
+        # Set velocity value if it has been initialized
         self._velocity_weights = momentum * self._velocity_weights - lr * weights_grad
         self._velocity_bias = momentum * self._velocity_bias - lr * bias_grad
 

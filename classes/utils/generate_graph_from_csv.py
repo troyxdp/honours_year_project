@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     # Plot data path and plot labels
-    file_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/networks/experiment_2/train_stats.csv'
+    file_path = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/pytorch_networks/experiment_1/train_stats.csv'
     xlabel = 'Training Loss'
     ylabel = 'Epoch Number'
     plot_title = 'Training Loss Per Epoch'
