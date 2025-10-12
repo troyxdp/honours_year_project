@@ -249,26 +249,32 @@ def test_network_ncg(
 
         # Get first (seed track) song and its embedding
         seed_track_id = selected_tracks[0]
-        seed_song = trainer.get_song_data_from_file(k_test_song_paths[0])
-        seed_song_nn_input = seed_song.get_nn_input()
-        nn.set_input(seed_song_nn_input)
-        nn.feed_forward()
-        seed_song_embedding = nn.get_output()
+        if traversal_algorithm != 'random':
+            seed_song = trainer.get_song_data_from_file(k_test_song_paths[0])
+            seed_song_nn_input = seed_song.get_nn_input()
+            nn.set_input(seed_song_nn_input)
+            nn.feed_forward()
+            seed_song_embedding = nn.get_output()
+        else:
+            seed_song_embedding = np.random.rand(64)
         seed_track_info = (seed_track_id, seed_song_embedding)
         recommender.set_seed_track_info(seed_track_info)
 
         # Set recommender values
         selected_tracks_info = []
         for song_path in k_test_song_paths[1:]:
-            try:
-                song = trainer.get_song_data_from_file(song_path)
-            except:
-                print(song_path)
-                exit(0)
-            song_nn_input = song.get_nn_input()
-            nn.set_input(song_nn_input)
-            nn.feed_forward()
-            song_embedding = nn.get_output()
+            if traversal_algorithm != 'random':
+                try:
+                    song = trainer.get_song_data_from_file(song_path)
+                except:
+                    print(song_path)
+                    exit(0)
+                song_nn_input = song.get_nn_input()
+                nn.set_input(song_nn_input)
+                nn.feed_forward()
+                song_embedding = nn.get_output()
+            else:
+                song_embedding = np.random.rand(64)
             track_info = (os.path.splitext(os.path.basename(song_path))[0], song_embedding)
             selected_tracks_info.append(track_info)
         recommender.init_selected_track_ids(selected_tracks_info=selected_tracks_info)
@@ -387,26 +393,32 @@ def test_network_precision(
 
         # Get first (seed track) song and its embedding
         seed_track_id = selected_tracks[0]
-        seed_song = trainer.get_song_data_from_file(k_test_song_paths[0])
-        seed_song_nn_input = seed_song.get_nn_input()
-        nn.set_input(seed_song_nn_input)
-        nn.feed_forward()
-        seed_song_embedding = nn.get_output()
+        if traversal_algorithm != 'random':
+            seed_song = trainer.get_song_data_from_file(k_test_song_paths[0])
+            seed_song_nn_input = seed_song.get_nn_input()
+            nn.set_input(seed_song_nn_input)
+            nn.feed_forward()
+            seed_song_embedding = nn.get_output()
+        else:
+            seed_song_embedding = np.random.rand(64)
         seed_track_info = (seed_track_id, seed_song_embedding)
         recommender.set_seed_track_info(seed_track_info)
 
         # Set recommender values
         selected_tracks_info = []
         for song_path in k_test_song_paths[1:]:
-            try:
-                song = trainer.get_song_data_from_file(song_path)
-            except:
-                print(song_path)
-                exit(0)
-            song_nn_input = song.get_nn_input()
-            nn.set_input(song_nn_input)
-            nn.feed_forward()
-            song_embedding = nn.get_output()
+            if traversal_algorithm != 'random':
+                try:
+                    song = trainer.get_song_data_from_file(song_path)
+                except:
+                    print(song_path)
+                    exit(0)
+                song_nn_input = song.get_nn_input()
+                nn.set_input(song_nn_input)
+                nn.feed_forward()
+                song_embedding = nn.get_output()
+            else:
+                song_embedding = np.random.rand(64)
             track_info = (os.path.splitext(os.path.basename(song_path))[0], song_embedding)
             selected_tracks_info.append(track_info)
         recommender.init_selected_track_ids(selected_tracks_info=selected_tracks_info)
@@ -786,17 +798,17 @@ if __name__ == '__main__':
     )
     parser.add_argument('--pregenerated', action='store_true', help='Specification of whether to run tests on pregenerated song lists')
     parser.add_argument('--test-precision', action='store_true', help='Specification of whether to test for precision or not')
-    parser.add_argument('--test-dataset-path', type=str, help='Path to the test dataset of h5 songs')
-    parser.add_argument('--song-plays-dataset-path', type=str, help='Path to the dataset showing which users played a song with a given song ID')
-    parser.add_argument('--song-links-dataset-path', type=str, help='Path to the dataset showing which songs have common listeners for a given song ID')
-    parser.add_argument('--pregenerated-lists-dataset-path', type=str, help='Path to the pregenerated lists of songs of different k lengths to test on')
-    parser.add_argument('--output-path', type=str, help='The directory to output the CSV files containing the test results for each k value to')
-    parser.add_argument('--nn-path', type=str, help='Path to neural network to test')
-    parser.add_argument('--low-k', type=int, help='Lowest k value to test on')
-    parser.add_argument('--high-k', type=int, help='Highest k value to test on')
-    parser.add_argument('--k-step', type=int, help='The number of integers after a k value to next test on')
-    parser.add_argument('--ncg-max-k', type=int, help='The maximum k value to calculate NCG for. Not recommended going above 20')
-    parser.add_argument('--traversal-algorithm', type=str, choices=['greedy_nearest_neighbour', 'optimal_path'], help='The type of traversal you would like to perform: Greedy Nearest Neighbour (greedy_nearest_neighbour) or Held-Karp (optimal_path)')
+    parser.add_argument('--test-dataset-path', type=str, help='Path to the test dataset of h5 songs', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/test_songs')
+    parser.add_argument('--song-plays-dataset-path', type=str, help='Path to the dataset showing which users played a song with a given song ID', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/songs_with_links_play_data')
+    parser.add_argument('--song-links-dataset-path', type=str, help='Path to the dataset showing which songs have common listeners for a given song ID', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/song_links_dataset')
+    parser.add_argument('--pregenerated-lists-dataset-path', type=str, help='Path to the pregenerated lists of songs of different k lengths to test on', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/song_lists/precision_tests/a')
+    parser.add_argument('--output-path', type=str, help='The directory to output the CSV files containing the test results for each k value to', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/Random Generator Statistics/Raw Data/Test A - Precision')
+    parser.add_argument('--nn-path', type=str, help='Path to neural network to test', default='')
+    parser.add_argument('--low-k', type=int, help='Lowest k value to test on', default=10)
+    parser.add_argument('--high-k', type=int, help='Highest k value to test on', default=700)
+    parser.add_argument('--k-step', type=int, help='The number of integers after a k value to next test on', default=10)
+    parser.add_argument('--ncg-max-k', type=int, help='The maximum k value to calculate NCG for. Not recommended going above 20', default=0)
+    parser.add_argument('--traversal-algorithm', type=str, choices=['greedy_nearest_neighbour', 'optimal_path', 'random'], default='random', help='The type of traversal you would like to perform: Greedy Nearest Neighbour (greedy_nearest_neighbour) or Held-Karp (optimal_path)')
 
     args = parser.parse_args()
 
@@ -804,10 +816,10 @@ if __name__ == '__main__':
     if not args.pregenerated:
         # Load encoder neural network for testing
         nn_path = args.nn_path
-        if not os.path.exists(nn_path):
+        if not os.path.exists(nn_path) and args.traversal_algorithm != 'random':
             print("Error: could not find neural network")
             exit(0)
-        nn = NeuralNetwork.load_network(nn_path)
+        nn = NeuralNetwork.load_network(nn_path) if nn_path else NeuralNetwork()
 
         # Paths to data and hyperparameters to use for testing
         low_k = args.low_k
@@ -827,7 +839,7 @@ if __name__ == '__main__':
             test_dataset_path=args.test_dataset_path,
             song_plays_dataset_path=args.song_plays_dataset_path,
             song_links_test_dataset_path=args.song_links_test_dataset_path,
-            traversal_algorithm='greedy_nearest_neighbour',
+            traversal_algorithm=args.traversal_algorithm,
             high_k=high_k,
             low_k=low_k,
             k_step=k_stride,
@@ -844,10 +856,10 @@ if __name__ == '__main__':
 
         # Load encoder neural network for testing
         nn_path = args.nn_path
-        if not os.path.exists(nn_path):
+        if not os.path.exists(nn_path) and args.traversal_algorithm != 'random':
             print("Error: could not find neural network")
             exit(0)
-        nn = NeuralNetwork.load_network(nn_path)
+        nn = NeuralNetwork.load_network(nn_path) if nn_path else NeuralNetwork()
 
         output_path = args.output_path
         # Check if output_path exists
@@ -861,11 +873,10 @@ if __name__ == '__main__':
                 test_dataset_path=args.test_dataset_path,
                 song_links_test_dataset_path=args.song_links_dataset_path,
                 pregenerated_lists_dataset_path=pregenerated_lists_dataset_path,
-                traversal_algorithm='greedy_nearest_neighbour',
+                traversal_algorithm=args.traversal_algorithm,
                 output_path=output_path,
             )
         else:
-            traversal_algorithm = input("Would you like to test using Greedy Nearest Neighbour or Held Karp traversal? (greedy_nearest_neighbour/optimal_path) ")
             test_network_ncg(
                 nn=nn,
                 test_dataset_path=args.test_dataset_path,

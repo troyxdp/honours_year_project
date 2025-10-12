@@ -216,6 +216,8 @@ def test_network_ncg(
         pregenerated_lists_dataset_path: str,
         traversal_algorithm: str,
         output_path='Statistics/Raw Data',
+        experiment_number: int = 1,
+        test_number: str = 'A',
     ):
     # Create a trainer for fetching file paths - used later
     trainer = Trainer(
@@ -331,7 +333,7 @@ def test_network_ncg(
     plt.xlabel("k")
     plt.ylabel("NCG@k")
     plt.title("NCG@k for Different k Values")
-    plt.show()
+    plt.savefig(os.path.join(output_path, f"pytorch_experiment_{experiment_number}_test_{test_number}_ncg_scores.png"))
 
     # Save NCG scores to CSV
     ncg_dict = {
@@ -726,17 +728,19 @@ if __name__ == '__main__':
     )
     parser.add_argument('--pregenerated', action='store_true', help='Specification of whether to run tests on pregenerated song lists')
     parser.add_argument('--test-precision', action='store_true', help='Specification of whether to test for precision or not')
-    parser.add_argument('--test-dataset-path', type=str, help='Path to the test dataset of h5 songs')
-    parser.add_argument('--song-plays-dataset-path', type=str, help='Path to the dataset showing which users played a song with a given song ID')
-    parser.add_argument('--song-links-dataset-path', type=str, help='Path to the dataset showing which songs have common listeners for a given song ID')
-    parser.add_argument('--pregenerated-lists-dataset-path', type=str, help='Path to the pregenerated lists of songs of different k lengths to test on')
-    parser.add_argument('--output-path', type=str, help='The directory to output the CSV files containing the test results for each k value to')
-    parser.add_argument('--nn-path', type=str, help='Path to neural network to test')
-    parser.add_argument('--low-k', type=int, help='Lowest k value to test on')
-    parser.add_argument('--high-k', type=int, help='Highest k value to test on')
-    parser.add_argument('--k-step', type=int, help='The number of integers after a k value to next test on')
-    parser.add_argument('--ncg-max-k', type=int, help='The maximum k value to calculate NCG for. Not recommended going above 20')
-    parser.add_argument('--traversal-algorithm', type=str, choices=['greedy_nearest_neighbour', 'optimal_path'], help='The type of traversal you would like to perform: Greedy Nearest Neighbour (greedy_nearest_neighbour) or Held-Karp (optimal_path)')
+    parser.add_argument('--test-dataset-path', type=str, help='Path to the test dataset of h5 songs', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/test_songs')
+    parser.add_argument('--song-plays-dataset-path', type=str, help='Path to the dataset showing which users played a song with a given song ID', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/songs_with_links_play_data')
+    parser.add_argument('--song-links-dataset-path', type=str, help='Path to the dataset showing which songs have common listeners for a given song ID', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/song_links_dataset')
+    parser.add_argument('--pregenerated-lists-dataset-path', type=str, help='Path to the pregenerated lists of songs of different k lengths to test on', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/song_lists/precision_tests/a')
+    parser.add_argument('--output-path', type=str, help='The directory to output the CSV files containing the test results for each k value to', default='/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/Random Generator Statistics/Raw Data/Test A - Precision')
+    parser.add_argument('--nn-path', type=str, help='Path to neural network to test', default='')
+    parser.add_argument('--low-k', type=int, help='Lowest k value to test on', default=10)
+    parser.add_argument('--high-k', type=int, help='Highest k value to test on', default=700)
+    parser.add_argument('--k-step', type=int, help='The number of integers after a k value to next test on', default=10)
+    parser.add_argument('--ncg-max-k', type=int, help='The maximum k value to calculate NCG for. Not recommended going above 20', default=0)
+    parser.add_argument('--traversal-algorithm', type=str, choices=['greedy_nearest_neighbour', 'optimal_path', 'random'], default='random', help='The type of traversal you would like to perform: Greedy Nearest Neighbour (greedy_nearest_neighbour) or Held-Karp (optimal_path)')
+    parser.add_argument('--experiment-number', type=int, default=1, help='Experiment number of experiment being run')
+    parser.add_argument('--test-number', type=str, default='A', help='Test number of test being run')
 
     args = parser.parse_args()
 
@@ -807,12 +811,13 @@ if __name__ == '__main__':
                 output_path=output_path,
             )
         else:
-            traversal_algorithm = input("Would you like to test using Greedy Nearest Neighbour or Held Karp traversal? (greedy_nearest_neighbour/optimal_path) ")
             test_network_ncg(
                 nn=nn,
                 test_dataset_path=args.test_dataset_path,
                 song_plays_dataset_path=args.song_plays_dataset_path,
                 pregenerated_lists_dataset_path=pregenerated_lists_dataset_path,
                 traversal_algorithm=args.traversal_algorithm,
-                output_path=output_path
+                output_path=output_path,
+                experiment_number=args.experiment_number,
+                test_number=args.test_number
             )

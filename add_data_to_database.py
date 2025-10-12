@@ -6,6 +6,7 @@ import numpy as np
 
 from classes.trainer import Trainer
 from classes.neural_network import NeuralNetwork
+from classes.song import Song
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,6 +17,10 @@ DB_USER = os.getenv('DB_USER')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
+NEURAL_NETWORK_PATH = os.getenv('NEURAL_NETWORK_PATH')
+
+# Load embedding neural network
+embedder = NeuralNetwork.load_network(file_path=NEURAL_NETWORK_PATH)
 
 # Create connection to database
 conn = psycopg2.connect(
@@ -25,6 +30,11 @@ conn = psycopg2.connect(
     host=DB_HOST,
     port=DB_PORT
 )
+
+def get_embedding(song: Song) -> np.ndarray: 
+    embedder.set_input(song.get_nn_input())
+    embedder.feed_forward()
+    return embedder.get_output()
 
 if __name__ == '__main__':
     trainer = Trainer(
@@ -39,19 +49,20 @@ if __name__ == '__main__':
     )
     num_tracks_to_add = 100
     cursor = conn.cursor()
-    for i, track in enumerate(trainer.get_file_paths(input_dim=202)):
+    for i, file_path in enumerate(trainer.get_file_paths(input_dim=202, num_files=num_tracks_to_add)):
+        track = trainer.get_song_data_from_file(file_path)
         if i < num_tracks_to_add:
             cursor.execute(
                 '''
                 INSERT
-                    INTO track(track_id, song_name, artist_name, release_year, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, timbre_values, embedding, audio_file_path, genre)
+                    INTO track(track_id, song_name, artist_name, release_year, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, pitch_values, embedding, audio_file_path, genre)
                 VALUES
                     (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 ''',
                 (
-                    track.song_id, track.song_name, track.artists, np.random.randint(1900, 2025), float(track.danceability), float(track.energy), 
+                    os.path.basename(os.path.splitext(file_path)[0]), track.song_name, track.artists, np.random.randint(1900, 2025), float(track.danceability), float(track.energy), 
                     float(track.loudness), float(track.valence), float(track.instrumentalness), int(track.key), int(track.mode), 
-                    float(track.tempo), int(track.time_signature), track.timbre_values.tolist(), np.random.rand(64).tolist(), f"{i}.mp3",
+                    float(track.tempo), int(track.time_signature), track.chroma_values.tolist(), get_embedding(track).tolist(), f"PIGGY.mp3",
                     'electronic'
                 )
             )

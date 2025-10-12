@@ -1,4 +1,5 @@
 import itertools
+import random
 
 import numpy as np
 
@@ -219,6 +220,9 @@ class Recommender():
         elif self._traversal_algorithm == 'optimal_path':
             # Get optimal path
             self._recommendations = self._get_optimal_path(self._seed_track_info, self._selected_tracks_info.copy())
+        elif self._traversal_algorithm == 'random':
+            # Get random path (used for testing)
+            self._recommendations = self._get_random_path(self._seed_track_info, self._selected_tracks_info.copy())
 
 
     # greedy nearest neighbour search
@@ -361,6 +365,11 @@ class Recommender():
 
         return path, optimal_cost
 
+    # Generate a random path
+    def _get_random_path(self, curr_track: tuple, tracks: list[tuple]):
+        # Randomly shuffle the tracks
+        random.shuffle(tracks)
+        return tracks
 
 
 if __name__ == '__main__':

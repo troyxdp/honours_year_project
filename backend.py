@@ -664,7 +664,7 @@ def upload_track(
         cursor.execute(
             '''
             INSERT
-                INTO track(track_id, song_name, artist_name, release_year, genre, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, timbre_values, embedding, audio_file_path)
+                INTO track(track_id, song_name, artist_name, release_year, genre, danceability, energy, loudness, valence, instrumentalness, key, mode, bpm, time_signature, pitch_values, embedding, audio_file_path)
             VALUES
                 (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
             ''',
@@ -823,7 +823,7 @@ def edit_track(tracks: EditTracks):
         cursor.execute(
             '''
             SELECT
-                timbre_values
+                pitch_values
             FROM
                 track
             WHERE
@@ -865,7 +865,7 @@ def edit_track(tracks: EditTracks):
         conn.close()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error: invalid values provided for editted track")
     
-    timbre_values = np.array(record[0])
+    chroma_values = np.array(record[0])
     
     song = Song(
         song_id=editted_track.track_id,
@@ -882,7 +882,7 @@ def edit_track(tracks: EditTracks):
         mode=editted_track.mode,
         tempo=editted_track.bpm,
         time_signature=editted_track.time_signature,
-        timbre_values=timbre_values
+        chroma_values=chroma_values
     )
     embedding = get_embedding(song)
     
