@@ -46,6 +46,8 @@ To use the project, you will need to create a table in PostgreSQL with the follo
 Indexes:
     "track_pkey" PRIMARY KEY, btree (track_id)
 ```
+You need to make sure that PGVector is installed and activated for use within Postgres. Steps for how to do so can be found online.
+
 You will also need to create a `.env` file that looks as follows:
 ```
 DB=...
@@ -55,7 +57,7 @@ DB_HOST='localhost'
 DB_PORT=5432
 NEURAL_NETWORK_PATH=...
 ```
-The `DB` field is the name of the database that contains the `track` table; the `DB_USER` is the user with the database; the `DB_PASSWORD` field is the password to your database for the user; the `DB_HOST` field is the IP of where the database is hosted; `DB_PORT` is the port used to connect to the database (normally something like 5432), and the `NEURAL_NETWORK_PATH` field is the path to the neural network trained using the handwritten neural network code in `neural_network.py` using the `train.py` and `trainer.py` files.  
+The `DB` field is the name of the database that contains the `track` table; the `DB_USER` is the user with the database; the `DB_PASSWORD` field is the password to your database for the user; the `DB_HOST` field is the IP of where the database is hosted; `DB_PORT` is the port used to connect to the database (normally something like 5432), and the `NEURAL_NETWORK_PATH` field is the path to the neural network trained using the handwritten neural network code in `neural_network.py` using the `train.py` and `trainer.py` files. 
 
 # REFERENCES FOR THE CODE
 
