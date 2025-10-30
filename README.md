@@ -22,7 +22,40 @@ The second line will not work on Windows, and I cannot for the life of me rememb
 
 The weights files are also not included in this repo as they are too large, and neither are the datasets. The datasets may be available for download depending on what my mentor wants me to do.
 
-
+To use the project, you will need to create a table in PostgreSQL with the following schema: 
+```
+      Column      |         Type          | Collation | Nullable | Default 
+------------------+-----------------------+-----------+----------+---------
+ track_id         | character varying(50) |           | not null | 
+ song_name        | text                  |           | not null | 
+ artist_name      | text                  |           | not null | 
+ release_year     | smallint              |           |          | 
+ danceability     | numeric(6,5)          |           |          | 
+ loudness         | numeric(6,3)          |           |          | 
+ key              | smallint              |           |          | 
+ mode             | smallint              |           |          | 
+ bpm              | numeric(8,4)          |           |          | 
+ time_signature   | smallint              |           |          | 
+ pitch_values     | double precision[]    |           |          | 
+ energy           | numeric(6,5)          |           |          | 
+ valence          | numeric(6,5)          |           |          | 
+ instrumentalness | numeric(6,5)          |           |          | 
+ genre            | text                  |           |          | 
+ audio_file_path  | text                  |           |          | 
+ embedding        | vector(64)            |           |          | 
+Indexes:
+    "track_pkey" PRIMARY KEY, btree (track_id)
+```
+You will also need to create a `.env` file that looks as follows:
+```
+DB=...
+DB_USER=...
+DB_PASSWORD=...
+DB_HOST='localhost'
+DB_PORT=5432
+NEURAL_NETWORK_PATH=...
+```
+The `DB` field is the name of the database that contains the `track` table; the `DB_USER` is the user with the database; the `DB_PASSWORD` field is the password to your database for the user; the `DB_HOST` field is the IP of where the database is hosted; `DB_PORT` is the port used to connect to the database (normally something like 5432), and the `NEURAL_NETWORK_PATH` field is the path to the neural network trained using the handwritten neural network code in `neural_network.py` using the `train.py` and `trainer.py` files.  
 
 # REFERENCES FOR THE CODE
 
