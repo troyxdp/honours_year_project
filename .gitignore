@@ -24,6 +24,3 @@ tracks/
 test_files/
 networks/
 merged_dataset.csv
-
-demo.ipynb
-demo copy.ipynb
