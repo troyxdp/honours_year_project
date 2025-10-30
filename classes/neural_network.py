@@ -344,7 +344,6 @@ class NeuralNetwork():
 
 
 if __name__ == '__main__':
-    # TEST CODE
     do_test = input("Would you like to test the neural network code? (y/n) ")
     if do_test.lower() == 'y':
         # NETWORK 1:
