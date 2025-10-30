@@ -120,7 +120,7 @@ class Trainer():
 
         return file_paths
     
-    # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
+    # Adapted from Bertin-Mahieux, T. (2010) (https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py)
     # specifically the parts for getting each value from the h5 file
     def get_song_data_from_file(self, file_path):
         # Check if file exists. If not, raise exception
@@ -401,9 +401,9 @@ class Trainer():
             for i, val_stat in enumerate(val_stats):
                 writer.writerow([i+1, val_stat.get_loss(), val_stat.get_epoch_time()])
 
-    # adapted from https://medium.com/@piyushkashyap045/mastering-weight-initialization-in-neural-networks-a-beginners-guide-6066403140e9
+    # Adapted from Kashyap, P. (2024) (https://medium.com/@piyushkashyap045/mastering-weight-initialization-in-neural-networks-a-beginners-guide-6066403140e9)
     def get_he_initialization(n_inputs, n_outputs):
-        return np.random.normal(0, np.sqrt(2 / n_inputs), (n_outputs, n_inputs))
+        return np.random.normal(0, np.sqrt(2 / n_inputs), (n_outputs, n_inputs)) # (mean, std dev, shape)
     
     def _determine_epoch_learning_rate(self, epoch, num_epochs, initial_lr, final_lr):
         if num_epochs == 1:

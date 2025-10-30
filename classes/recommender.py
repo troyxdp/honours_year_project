@@ -303,8 +303,9 @@ class Recommender():
         # return recommendations list
         return recommendations
 
-    # Made with assistance from https://en.wikipedia.org/wiki/Held%E2%80%93Karp_algorithm
-    # Made with assistance from https://stackoverflow.com/questions/69902373/can-you-help-explain-this-held-karp-tsp-pseudocode
+    # Made with assistance from Wikipedia contributors (2025) (https://en.wikipedia.org/wiki/Held%E2%80%93Karp_algorithm)
+    # Made with assistance from Aivean (2021) (https://stackoverflow.com/questions/69902373/can-you-help-explain-this-held-karp-tsp-pseudocode)
+    # Made with assistance from Tushar, R. (2015) (https://www.youtube.com/watch?v=-JjA4BLQyqE)
     def _held_karp(self, dists: np.ndarray):
         # Initialize values
         cities = [_ for _ in range(len(dists))]
@@ -351,7 +352,7 @@ class Recommender():
                 arg_min_k = k
 
         # Find optimal path by backtracking through parents
-        # Made with assistance from https://www.youtube.com/watch?v=-JjA4BLQyqE
+        # Made with assistance from Tushar, R. (2015) (https://www.youtube.com/watch?v=-JjA4BLQyqE)
         path = []
         subset = tuple(cities[1:])
         k = arg_min_k
@@ -370,38 +371,3 @@ class Recommender():
         # Randomly shuffle the tracks
         random.shuffle(tracks)
         return tracks
-
-
-if __name__ == '__main__':
-    curr_track = ('a', np.array([1, 1]))
-    tracks = [
-        ('f', np.array([-1, 1])),
-        ('c', np.array([1, -1])),
-        ('b', np.array([2, 0])),
-        ('e', np.array([-2, 0])),
-        ('d', np.array([-1, -1])),
-    ]
-
-    # test initializing recommendations
-    recommender = Recommender()
-    recommender.set_seed_track_info(curr_track)
-    recommender.init_selected_track_ids(tracks.copy())
-    recommender.init_recommendations()
-    print("Recommendations path after initialization:")
-    print(recommender._recommendations)
-    print()
-
-    # test getting next recommendation when previous recommendation taken
-    next_rec_id = recommender.get_next_recommendation_track_id(('b', np.array([2, 0])))
-    print("Next recommendation given user played b:")
-    print(next_rec_id)
-    print("Recommendation path:")
-    print(recommender._recommendations)
-    print()
-
-    # test getting next recommendation when previous recommendation NOT taken
-    next_rec_id = recommender.get_next_recommendation_track_id(tracks[0])
-    print("Next recommendation given user played f:")
-    print(next_rec_id)
-    print("Recommendation path:")
-    print(recommender._recommendations)

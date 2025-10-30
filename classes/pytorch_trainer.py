@@ -121,7 +121,7 @@ class PyTorchTrainer():
 
         return file_paths
     
-    # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
+    # Adapted from Bertin-Mahieux, T. (2010) (https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py)
     # specifically the parts for getting each value from the h5 file
     def get_song_data_from_file(self, file_path):
         # Check if file exists. If not, raise exception
@@ -178,7 +178,7 @@ class PyTorchTrainer():
             # Return fetched data
             return song
 
-    # Adapted from Bertin-Mahieux, T. (2010) https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py
+    # Adapted from Bertin-Mahieux, T. (2010) (https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_getters.py)
     # specifically the parts for getting each value from the h5 file
     def get_track_data(dataset_path):
         # Check path provided is valid

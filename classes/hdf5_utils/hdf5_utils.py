@@ -6,7 +6,7 @@ import numpy as np
 import classes.hdf5_utils.hdf5_descriptors as DESC
 from classes.song import Song
 
-# The code below in this file is adapted from https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_utils.py#L391
+# The code below in this file is adapted from Bertin-Mahieux, T. (2010) (https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_utils.py#L391)
 
 def create_song_file(h5filename: str, title='H5 Song File', force=False, complevel=1):
     """

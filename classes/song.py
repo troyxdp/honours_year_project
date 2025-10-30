@@ -110,10 +110,6 @@ class Song():
 
         return np.array(nn_input) # TOTAL LENGTH 202 (with chroma values XOR timbre values), 394 (with chroma values AND timbre values), 10 (without chroma or timbre values)
         
-    # def get_genre_encoding(self):
-    #     # TODO: implement a genre encoding
-    #     return [0, 0, 0, 0, 0, 0, 1]
-
     def get_camelot_wheel_value(self):
         # key number: camelot number
         minor_key_numbers = {

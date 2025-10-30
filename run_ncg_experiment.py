@@ -2,16 +2,16 @@ import os
 import subprocess
 
 network_paths = [
-    # '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/pytorch_networks/experiment_1/best_val_loss_network.pt',
-    # '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/pytorch_networks/experiment_2/best_val_loss_network.pt',
-    '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/pytorch_networks/experiment_3/best_val_loss_network.pt',
+    './pytorch_networks/experiment_1/best_val_loss_network.pt',
+    './pytorch_networks/experiment_2/best_val_loss_network.pt',
+    './pytorch_networks/experiment_3/best_val_loss_network.pt',
 ]
 
-ncg_test_data_root = '/home/troyxdp/Documents/University Work/HYP/HYP Source Code/Back End/test_dataset/song_lists/ncg_tests'
+ncg_test_data_root = './test_dataset/song_lists/ncg_tests'
 
 experiment_paths = [
-    # '/home/troyxdp/Documents/University Work/HYP/Experiment/PyTorch Statistics/NCG/Experiment 1',
-    # '/home/troyxdp/Documents/University Work/HYP/Experiment/PyTorch Statistics/NCG/Experiment 2',
+    '/home/troyxdp/Documents/University Work/HYP/Experiment/PyTorch Statistics/NCG/Experiment 1',
+    '/home/troyxdp/Documents/University Work/HYP/Experiment/PyTorch Statistics/NCG/Experiment 2',
     '/home/troyxdp/Documents/University Work/HYP/Experiment/PyTorch Statistics/NCG/Experiment 3',
 ]
 

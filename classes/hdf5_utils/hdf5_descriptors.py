@@ -1,6 +1,6 @@
 import tables
 
-# Code below is adapted from https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_descriptors.py
+# Code below is adapted from Bertin-Mahieux, T. (2010) (https://github.com/tbertinmahieux/MSongsDB/blob/master/PythonSrc/hdf5_descriptors.py)
 
 MAXSTRLEN = 1024
 

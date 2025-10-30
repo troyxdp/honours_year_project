@@ -36,8 +36,9 @@ def get_subsets(set, length):
     set_list = list(set)
     return itertools.combinations(set_list, length)
 
-# Made with assistance from https://en.wikipedia.org/wiki/Held%E2%80%93Karp_algorithm
-# Made with assistance from https://stackoverflow.com/questions/69902373/can-you-help-explain-this-held-karp-tsp-pseudocode
+# Made with assistance from Wikipedia contributors (2025) (https://en.wikipedia.org/wiki/Held%E2%80%93Karp_algorithm)
+# Made with assistance from Aivean (2021) (https://stackoverflow.com/questions/69902373/can-you-help-explain-this-held-karp-tsp-pseudocode)
+# Made with assistance from Tushar, R. (2015) (https://www.youtube.com/watch?v=-JjA4BLQyqE)
 def held_karp_maximimizer(dists):
     # This algorithm is similar to the standard Held-Karp Algorithm, except it tries to find the longest instead of the shortest path
     # Initialize values
@@ -85,7 +86,7 @@ def held_karp_maximimizer(dists):
             arg_max_k = k
 
     # Find optimal path by backtracking through parents
-    # Made with assistance from https://www.youtube.com/watch?v=-JjA4BLQyqE
+    # Made with assistance from Tushar, R. (2015) (https://www.youtube.com/watch?v=-JjA4BLQyqE)
     path = []
     subset = tuple(cities[1:])
     k = arg_max_k
@@ -333,7 +334,7 @@ def test_network_ncg(
         ncg_scores.append(ncg)
         print(f"NCG@{k} = {ncg}")
 
-    # Do the tings for the NCG values (if they are there)
+    # Do the tings for the NCG values
     ncg_k_values = [int(os.path.splitext(test_path)[0]) for test_path in test_paths]
     plt.plot(ncg_k_values, ncg_scores)
     plt.xlabel("k")
@@ -590,7 +591,7 @@ def test_network_on_random_lists(
         recommendations_gen_end_time = time.time() - start_time
         recommendation_gen_times.append(recommendations_gen_end_time)
 
-        # Calculate optimal path for "NCG" (not NDCG - discounting is not appropriate for task) - not recommended going above 20 else Held-Karp will take FOREVER since it is O(n^2 * 2^n)
+        # Calculate optimal path for NCG - not recommended going above 20 else Held-Karp will take FOREVER since it is O(n^2 * 2^n)
         optimal_gain = 0
         if k <= ncg_max_k:
             # Get "distances" between each song (which will be 1/iou because Held-Karp minimizes)
@@ -885,21 +886,3 @@ if __name__ == '__main__':
                 traversal_algorithm=args.traversal_algorithm,
                 output_path=output_path
             )
-
-    # # Generate song lists to test on
-    # if input("\nWould you like to generate lists of songs for tests? (y/n) ").lower() == 'y':
-    #     high_k = int(input("Input High K: "))
-    #     low_k = int(input("Input Low K: "))
-    #     k_stride = int(input("Input K Stride: "))
-
-    #     output_path = input("Please input the root directory for all of the lists: ")
-
-    #     generate_lists(
-    #         test_dataset_path=args.test_dataset_path,
-    #         song_plays_dataset_path=args.song_plays_dataset_path,
-    #         song_links_test_dataset_path=song_links_test_dataset_path,
-    #         output_path=output_path,
-    #         low_k=low_k,
-    #         high_k=high_k,
-    #         k_step=k_stride,
-    #     )

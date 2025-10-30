@@ -38,8 +38,9 @@ def get_subsets(set, length):
     set_list = list(set)
     return itertools.combinations(set_list, length)
 
-# Made with assistance from https://en.wikipedia.org/wiki/Held%E2%80%93Karp_algorithm
-# Made with assistance from https://stackoverflow.com/questions/69902373/can-you-help-explain-this-held-karp-tsp-pseudocode
+# Made with assistance from Wikipedia contributors (2025) (https://en.wikipedia.org/wiki/Held%E2%80%93Karp_algorithm)
+# Made with assistance from Aivean (2021) (https://stackoverflow.com/questions/69902373/can-you-help-explain-this-held-karp-tsp-pseudocode)
+# Made with assistance from Tushar, R. (2015) (https://www.youtube.com/watch?v=-JjA4BLQyqE)
 def held_karp_maximimizer(dists):
     # This algorithm is similar to the standard Held-Karp Algorithm, except it tries to find the longest instead of the shortest path
     # Initialize values
@@ -87,7 +88,7 @@ def held_karp_maximimizer(dists):
             arg_max_k = k
 
     # Find optimal path by backtracking through parents
-    # Made with assistance from https://www.youtube.com/watch?v=-JjA4BLQyqE
+    # Made with assistance from Tushar, R. (2015) (https://www.youtube.com/watch?v=-JjA4BLQyqE)
     path = []
     subset = tuple(cities[1:])
     k = arg_max_k
