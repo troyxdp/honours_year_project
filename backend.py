@@ -38,7 +38,6 @@ NEURAL_NETWORK_PATH = os.getenv('NEURAL_NETWORK_PATH')
 # Load embedding neural network
 embedder = NeuralNetwork.load_network(file_path=NEURAL_NETWORK_PATH)
 print(NEURAL_NETWORK_PATH)
-print(embedder)
 
 # Load recommender
 recommender = Recommender()
